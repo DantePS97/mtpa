@@ -1,0 +1,335 @@
+/* =========================================================
+   M.T.P.A. - VARIABLES GLOBALES
+   Mejora Técnica de Producción Avícola
+   ========================================================= */
+
+:root {
+
+  /* =======================================================
+     COLORES PRINCIPALES
+     ======================================================= */
+
+  --color-primary: #07883f;
+  --color-primary-hover: #067535;
+  --color-primary-active: #055f2c;
+
+  --color-primary-dark: #004d3b;
+  --color-primary-darker: #003b2e;
+
+  --color-primary-light: #dff3e7;
+  --color-primary-lighter: #eff9f3;
+
+
+  /* =======================================================
+     COLORES SECUNDARIOS
+     ======================================================= */
+
+  --color-secondary: #1683d8;
+  --color-secondary-hover: #0f72c1;
+  --color-secondary-light: #e7f3fc;
+
+
+  /* =======================================================
+     COLORES DE ESTADO
+     ======================================================= */
+
+  /* Correcto / conectado / activo */
+  --color-success: #0b8f43;
+  --color-success-dark: #087537;
+  --color-success-light: #e5f6ec;
+
+  /* Información */
+  --color-info: #1683d8;
+  --color-info-dark: #1169ad;
+  --color-info-light: #e8f4fd;
+
+  /* Advertencia */
+  --color-warning: #f4a51c;
+  --color-warning-dark: #d98b08;
+  --color-warning-light: #fff5dc;
+
+  /* Error / alerta crítica */
+  --color-danger: #e5484d;
+  --color-danger-dark: #c9373c;
+  --color-danger-light: #fdebec;
+
+
+  /* =======================================================
+     COLORES AMBIENTALES
+     ======================================================= */
+
+  /* Temperatura */
+  --color-temperature: #159447;
+  --color-temperature-light: #e7f6ec;
+
+  /* Humedad */
+  --color-humidity: #2584d8;
+  --color-humidity-light: #e8f3fc;
+
+  /* Ventilador */
+  --color-fan: #006b46;
+  --color-fan-light: #e4f2ed;
+
+
+  /* =======================================================
+     FONDOS
+     ======================================================= */
+
+  --color-background: #f7f9f8;
+  --color-background-secondary: #f1f5f3;
+
+  --color-surface: #ffffff;
+  --color-surface-hover: #f8faf9;
+
+  --color-sidebar: #004d3b;
+  --color-sidebar-hover: #076b48;
+  --color-sidebar-active: #0b8f43;
+
+  --color-overlay: rgba(0, 0, 0, 0.45);
+
+
+  /* =======================================================
+     TEXTO
+     ======================================================= */
+
+  --color-text-primary: #172b4d;
+  --color-text-secondary: #5f6b7a;
+  --color-text-muted: #89929e;
+
+  --color-text-light: #ffffff;
+
+  --color-heading: #102a43;
+
+  --color-link: #1683d8;
+  --color-link-hover: #0f68ad;
+
+
+  /* =======================================================
+     BORDES
+     ======================================================= */
+
+  --color-border: #e1e7e4;
+  --color-border-light: #edf1ef;
+  --color-border-dark: #cbd5d1;
+
+  --border-width: 1px;
+
+  --border-default:
+    var(--border-width) solid var(--color-border);
+
+  --border-focus:
+    var(--border-width) solid var(--color-primary);
+
+
+  /* =======================================================
+     TIPOGRAFÍA
+     ======================================================= */
+
+  --font-family:
+    "Inter",
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+
+  --font-size-xs: 0.75rem;      /* 12px */
+  --font-size-sm: 0.875rem;     /* 14px */
+  --font-size-base: 1rem;       /* 16px */
+  --font-size-md: 1.125rem;     /* 18px */
+  --font-size-lg: 1.25rem;      /* 20px */
+  --font-size-xl: 1.5rem;       /* 24px */
+  --font-size-2xl: 1.875rem;    /* 30px */
+  --font-size-3xl: 2.25rem;     /* 36px */
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+
+  /* =======================================================
+     ESPACIADOS
+     ======================================================= */
+
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;     /* 4px */
+  --spacing-2: 0.5rem;      /* 8px */
+  --spacing-3: 0.75rem;     /* 12px */
+  --spacing-4: 1rem;        /* 16px */
+  --spacing-5: 1.25rem;     /* 20px */
+  --spacing-6: 1.5rem;      /* 24px */
+  --spacing-8: 2rem;        /* 32px */
+  --spacing-10: 2.5rem;     /* 40px */
+  --spacing-12: 3rem;       /* 48px */
+  --spacing-16: 4rem;       /* 64px */
+
+
+  /* =======================================================
+     BORDER RADIUS
+     ======================================================= */
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+
+  --radius-circle: 50%;
+  --radius-pill: 9999px;
+
+
+  /* =======================================================
+     SOMBRAS
+     ======================================================= */
+
+  --shadow-xs:
+    0 1px 2px rgba(16, 42, 67, 0.05);
+
+  --shadow-sm:
+    0 1px 3px rgba(16, 42, 67, 0.08),
+    0 1px 2px rgba(16, 42, 67, 0.04);
+
+  --shadow-md:
+    0 4px 10px rgba(16, 42, 67, 0.08);
+
+  --shadow-lg:
+    0 8px 24px rgba(16, 42, 67, 0.12);
+
+  --shadow-xl:
+    0 15px 35px rgba(16, 42, 67, 0.15);
+
+
+  /* =======================================================
+     FOCUS
+     ======================================================= */
+
+  --focus-ring:
+    0 0 0 3px rgba(7, 136, 63, 0.18);
+
+  --focus-ring-danger:
+    0 0 0 3px rgba(229, 72, 77, 0.18);
+
+
+  /* =======================================================
+     TRANSICIONES
+     ======================================================= */
+
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
+
+
+  /* =======================================================
+     TAMAÑOS DE CONTROLES
+     ======================================================= */
+
+  --control-height-sm: 34px;
+  --control-height-md: 42px;
+  --control-height-lg: 48px;
+
+  --input-height: 42px;
+  --button-height: 42px;
+
+
+  /* =======================================================
+     LAYOUT
+     ======================================================= */
+
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 72px;
+
+  --header-height: 64px;
+
+  --content-max-width: 1440px;
+
+  --content-padding:
+    var(--spacing-6);
+
+  --mobile-navigation-height: 64px;
+
+
+  /* =======================================================
+     Z-INDEX
+     ======================================================= */
+
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-header: 300;
+  --z-sidebar: 400;
+  --z-overlay: 800;
+  --z-modal: 900;
+  --z-notification: 1000;
+  --z-tooltip: 1100;
+
+
+  /* =======================================================
+     GRÁFICAS
+     ======================================================= */
+
+  --chart-temperature: #159447;
+  --chart-temperature-fill: rgba(21, 148, 71, 0.10);
+
+  --chart-humidity: #2584d8;
+  --chart-humidity-fill: rgba(37, 132, 216, 0.10);
+
+  --chart-grid: #e8ecea;
+  --chart-axis: #87938d;
+
+
+  /* =======================================================
+     ESTADOS DE DISPOSITIVOS
+     ======================================================= */
+
+  --device-connected: #0b8f43;
+  --device-disconnected: #e5484d;
+  --device-warning: #f4a51c;
+  --device-unknown: #89929e;
+
+
+  /* =======================================================
+     TABLAS
+     ======================================================= */
+
+  --table-header-background: #f7f9f8;
+  --table-row-hover: #f4f8f6;
+  --table-border: #e5e9e7;
+
+
+  /* =======================================================
+     FORMULARIOS
+     ======================================================= */
+
+  --input-background: #ffffff;
+  --input-border: #d8dfdc;
+  --input-border-hover: #aebbb5;
+  --input-border-focus: var(--color-primary);
+
+  --input-placeholder: #9aa4af;
+
+  --input-disabled-background: #f2f4f3;
+  --input-disabled-text: #8b949e;
+
+
+  /* =======================================================
+     BREAKPOINTS DE REFERENCIA
+     ======================================================= */
+
+  /*
+    Las custom properties no pueden utilizarse directamente
+    dentro de @media en CSS estándar.
+
+    Estos valores quedan documentados como referencia:
+
+    Mobile:  576px
+    Tablet:  768px
+    Laptop:  1024px
+    Desktop: 1280px
+  */
+}
