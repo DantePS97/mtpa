@@ -1,0 +1,1075 @@
+/* =========================================================
+   M.T.P.A. - ESTILOS GLOBALES
+   Mejora Técnica de Producción Avícola
+   ========================================================= */
+
+
+/* =========================================================
+   DOCUMENTO
+   ========================================================= */
+
+html {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  width: 100%;
+  min-height: 100vh;
+
+  color: var(--color-text-primary);
+  background-color: var(--color-background);
+
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+
+/* =========================================================
+   TIPOGRAFÍA
+   ========================================================= */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--color-heading);
+
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+h1 {
+  font-size: var(--font-size-3xl);
+}
+
+h2 {
+  font-size: var(--font-size-2xl);
+}
+
+h3 {
+  font-size: var(--font-size-xl);
+}
+
+h4 {
+  font-size: var(--font-size-lg);
+}
+
+h5 {
+  font-size: var(--font-size-md);
+}
+
+h6 {
+  font-size: var(--font-size-base);
+}
+
+p {
+  color: var(--color-text-secondary);
+
+  line-height: var(--line-height-normal);
+}
+
+small {
+  font-size: var(--font-size-xs);
+}
+
+strong,
+b {
+  font-weight: var(--font-weight-bold);
+}
+
+
+/* =========================================================
+   ENLACES
+   ========================================================= */
+
+a {
+  color: var(--color-link);
+
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-link-hover);
+}
+
+a:focus-visible {
+  border-radius: var(--radius-xs);
+
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+
+/* =========================================================
+   CONTENEDOR GENERAL
+   ========================================================= */
+
+.container {
+  width: 100%;
+  max-width: var(--content-max-width);
+
+  margin-right: auto;
+  margin-left: auto;
+
+  padding-right: var(--content-padding);
+  padding-left: var(--content-padding);
+}
+
+
+/* =========================================================
+   ESTRUCTURA GENERAL DE PÁGINA
+   ========================================================= */
+
+.page {
+  width: 100%;
+  min-height: 100%;
+
+  padding: var(--spacing-6);
+}
+
+.page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: var(--spacing-4);
+
+  margin-bottom: var(--spacing-6);
+}
+
+.page__header-content {
+  display: flex;
+  flex-direction: column;
+
+  gap: var(--spacing-1);
+}
+
+.page__title {
+  color: var(--color-heading);
+
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.page__subtitle {
+  color: var(--color-text-secondary);
+
+  font-size: var(--font-size-sm);
+}
+
+.page__actions {
+  display: flex;
+  align-items: center;
+
+  gap: var(--spacing-3);
+}
+
+.page__content {
+  width: 100%;
+}
+
+
+/* =========================================================
+   SECCIONES
+   ========================================================= */
+
+.section {
+  margin-bottom: var(--spacing-8);
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: var(--spacing-4);
+
+  margin-bottom: var(--spacing-4);
+}
+
+.section__title {
+  color: var(--color-heading);
+
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.section__description {
+  margin-top: var(--spacing-1);
+
+  color: var(--color-text-secondary);
+
+  font-size: var(--font-size-sm);
+}
+
+
+/* =========================================================
+   TARJETA GLOBAL
+   ========================================================= */
+
+.card {
+  width: 100%;
+
+  padding: var(--spacing-5);
+
+  background-color: var(--color-surface);
+
+  border: var(--border-default);
+  border-radius: var(--radius-lg);
+
+  box-shadow: var(--shadow-sm);
+
+  transition:
+    box-shadow var(--transition-normal),
+    transform var(--transition-normal);
+}
+
+.card--hover:hover {
+  box-shadow: var(--shadow-md);
+
+  transform: translateY(-2px);
+}
+
+.card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: var(--spacing-3);
+
+  margin-bottom: var(--spacing-4);
+}
+
+.card__title {
+  color: var(--color-heading);
+
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.card__subtitle {
+  margin-top: var(--spacing-1);
+
+  color: var(--color-text-secondary);
+
+  font-size: var(--font-size-sm);
+}
+
+.card__body {
+  width: 100%;
+}
+
+.card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: var(--spacing-3);
+
+  margin-top: var(--spacing-5);
+  padding-top: var(--spacing-4);
+
+  border-top: var(--border-default);
+}
+
+
+/* =========================================================
+   GRID
+   ========================================================= */
+
+.grid {
+  display: grid;
+
+  gap: var(--spacing-5);
+}
+
+.grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+
+/* =========================================================
+   FLEX
+   ========================================================= */
+
+.flex {
+  display: flex;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.items-start {
+  align-items: flex-start;
+}
+
+.items-end {
+  align-items: flex-end;
+}
+
+.justify-start {
+  justify-content: flex-start;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.justify-end {
+  justify-content: flex-end;
+}
+
+
+/* =========================================================
+   GAPS
+   ========================================================= */
+
+.gap-1 {
+  gap: var(--spacing-1);
+}
+
+.gap-2 {
+  gap: var(--spacing-2);
+}
+
+.gap-3 {
+  gap: var(--spacing-3);
+}
+
+.gap-4 {
+  gap: var(--spacing-4);
+}
+
+.gap-5 {
+  gap: var(--spacing-5);
+}
+
+.gap-6 {
+  gap: var(--spacing-6);
+}
+
+
+/* =========================================================
+   FORMULARIOS
+   ========================================================= */
+
+.form {
+  width: 100%;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+
+  gap: var(--spacing-2);
+
+  margin-bottom: var(--spacing-4);
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  color: var(--color-text-primary);
+
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.form-label__required {
+  margin-left: var(--spacing-1);
+
+  color: var(--color-danger);
+}
+
+.form-helper {
+  color: var(--color-text-muted);
+
+  font-size: var(--font-size-xs);
+}
+
+.form-error {
+  color: var(--color-danger);
+
+  font-size: var(--font-size-xs);
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: var(--spacing-3);
+
+  margin-top: var(--spacing-6);
+}
+
+
+/* =========================================================
+   INPUT BASE
+   ========================================================= */
+
+/*
+   Los componentes Input y Select tendrán sus propios
+   archivos CSS. Estas reglas sirven como base para
+   controles HTML que aparezcan fuera de esos componentes.
+*/
+
+.input-base {
+  width: 100%;
+  min-height: var(--input-height);
+
+  padding:
+    var(--spacing-2)
+    var(--spacing-3);
+
+  color: var(--color-text-primary);
+  background-color: var(--input-background);
+
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-md);
+
+  outline: none;
+
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.input-base:hover:not(:disabled) {
+  border-color: var(--input-border-hover);
+}
+
+.input-base:focus {
+  border-color: var(--input-border-focus);
+
+  box-shadow: var(--focus-ring);
+}
+
+.input-base:disabled {
+  color: var(--input-disabled-text);
+  background-color: var(--input-disabled-background);
+
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   ESTADOS GENERALES
+   ========================================================= */
+
+.status {
+  display: inline-flex;
+  align-items: center;
+
+  gap: var(--spacing-2);
+
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.status::before {
+  width: 8px;
+  height: 8px;
+
+  flex-shrink: 0;
+
+  border-radius: var(--radius-circle);
+
+  content: "";
+}
+
+.status--success {
+  color: var(--color-success);
+}
+
+.status--success::before {
+  background-color: var(--color-success);
+}
+
+.status--warning {
+  color: var(--color-warning-dark);
+}
+
+.status--warning::before {
+  background-color: var(--color-warning);
+}
+
+.status--danger {
+  color: var(--color-danger);
+}
+
+.status--danger::before {
+  background-color: var(--color-danger);
+}
+
+.status--info {
+  color: var(--color-info);
+}
+
+.status--info::before {
+  background-color: var(--color-info);
+}
+
+.status--muted {
+  color: var(--color-text-muted);
+}
+
+.status--muted::before {
+  background-color: var(--color-text-muted);
+}
+
+
+/* =========================================================
+   ESTADOS DE DISPOSITIVOS
+   ========================================================= */
+
+.device-status {
+  display: inline-flex;
+  align-items: center;
+
+  gap: var(--spacing-2);
+
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.device-status__indicator {
+  width: 10px;
+  height: 10px;
+
+  flex-shrink: 0;
+
+  border-radius: var(--radius-circle);
+}
+
+.device-status--connected {
+  color: var(--device-connected);
+}
+
+.device-status--connected .device-status__indicator {
+  background-color: var(--device-connected);
+}
+
+.device-status--disconnected {
+  color: var(--device-disconnected);
+}
+
+.device-status--disconnected .device-status__indicator {
+  background-color: var(--device-disconnected);
+}
+
+.device-status--warning {
+  color: var(--device-warning);
+}
+
+.device-status--warning .device-status__indicator {
+  background-color: var(--device-warning);
+}
+
+.device-status--unknown {
+  color: var(--device-unknown);
+}
+
+.device-status--unknown .device-status__indicator {
+  background-color: var(--device-unknown);
+}
+
+
+/* =========================================================
+   VALORES DE MONITORIZACIÓN
+   ========================================================= */
+
+.measurement {
+  display: flex;
+  flex-direction: column;
+
+  gap: var(--spacing-1);
+}
+
+.measurement__label {
+  color: var(--color-text-secondary);
+
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.measurement__value {
+  color: var(--color-heading);
+
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.measurement__unit {
+  margin-left: var(--spacing-1);
+
+  color: var(--color-text-secondary);
+
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+}
+
+.measurement--temperature .measurement__value {
+  color: var(--color-temperature);
+}
+
+.measurement--humidity .measurement__value {
+  color: var(--color-humidity);
+}
+
+
+/* =========================================================
+   ESTADO GENERAL DE LA INCUBADORA
+   ========================================================= */
+
+.system-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: var(--spacing-2);
+
+  padding:
+    var(--spacing-2)
+    var(--spacing-4);
+
+  border-radius: var(--radius-pill);
+
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.system-state--normal {
+  color: var(--color-success-dark);
+  background-color: var(--color-success-light);
+}
+
+.system-state--warning {
+  color: var(--color-warning-dark);
+  background-color: var(--color-warning-light);
+}
+
+.system-state--critical {
+  color: var(--color-danger-dark);
+  background-color: var(--color-danger-light);
+}
+
+
+/* =========================================================
+   MENSAJES
+   ========================================================= */
+
+.message {
+  display: flex;
+  align-items: flex-start;
+
+  gap: var(--spacing-3);
+
+  width: 100%;
+
+  padding: var(--spacing-4);
+
+  border-radius: var(--radius-md);
+
+  font-size: var(--font-size-sm);
+}
+
+.message--success {
+  color: var(--color-success-dark);
+  background-color: var(--color-success-light);
+
+  border: 1px solid var(--color-success);
+}
+
+.message--info {
+  color: var(--color-info-dark);
+  background-color: var(--color-info-light);
+
+  border: 1px solid var(--color-info);
+}
+
+.message--warning {
+  color: var(--color-warning-dark);
+  background-color: var(--color-warning-light);
+
+  border: 1px solid var(--color-warning);
+}
+
+.message--danger {
+  color: var(--color-danger-dark);
+  background-color: var(--color-danger-light);
+
+  border: 1px solid var(--color-danger);
+}
+
+
+/* =========================================================
+   TABLAS
+   ========================================================= */
+
+.table-container {
+  width: 100%;
+
+  overflow-x: auto;
+
+  background-color: var(--color-surface);
+
+  border: var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.table {
+  width: 100%;
+
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding:
+    var(--spacing-3)
+    var(--spacing-4);
+
+  border-bottom: 1px solid var(--table-border);
+
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table th {
+  color: var(--color-text-secondary);
+  background-color: var(--table-header-background);
+
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.table td {
+  color: var(--color-text-primary);
+
+  font-size: var(--font-size-sm);
+}
+
+.table tbody tr {
+  transition: background-color var(--transition-fast);
+}
+
+.table tbody tr:hover {
+  background-color: var(--table-row-hover);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
+/* =========================================================
+   DIVISORES
+   ========================================================= */
+
+.divider {
+  width: 100%;
+  height: 1px;
+
+  margin:
+    var(--spacing-4)
+    0;
+
+  background-color: var(--color-border);
+}
+
+
+/* =========================================================
+   ESTADO VACÍO
+   ========================================================= */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: var(--spacing-3);
+
+  min-height: 250px;
+
+  padding: var(--spacing-8);
+
+  text-align: center;
+}
+
+.empty-state__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 64px;
+  height: 64px;
+
+  color: var(--color-text-muted);
+  background-color: var(--color-background-secondary);
+
+  border-radius: var(--radius-circle);
+}
+
+.empty-state__title {
+  color: var(--color-heading);
+
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.empty-state__description {
+  max-width: 420px;
+
+  color: var(--color-text-secondary);
+
+  font-size: var(--font-size-sm);
+}
+
+
+/* =========================================================
+   LOADING
+   ========================================================= */
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  min-height: 200px;
+}
+
+
+/* =========================================================
+   TEXTO
+   ========================================================= */
+
+.text-primary {
+  color: var(--color-text-primary);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+
+.text-info {
+  color: var(--color-info);
+}
+
+.text-warning {
+  color: var(--color-warning-dark);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-xs {
+  font-size: var(--font-size-xs);
+}
+
+.text-sm {
+  font-size: var(--font-size-sm);
+}
+
+.text-base {
+  font-size: var(--font-size-base);
+}
+
+.text-lg {
+  font-size: var(--font-size-lg);
+}
+
+.text-xl {
+  font-size: var(--font-size-xl);
+}
+
+.font-normal {
+  font-weight: var(--font-weight-normal);
+}
+
+.font-medium {
+  font-weight: var(--font-weight-medium);
+}
+
+.font-semibold {
+  font-weight: var(--font-weight-semibold);
+}
+
+.font-bold {
+  font-weight: var(--font-weight-bold);
+}
+
+
+/* =========================================================
+   ANCHO
+   ========================================================= */
+
+.w-full {
+  width: 100%;
+}
+
+.w-auto {
+  width: auto;
+}
+
+
+/* =========================================================
+   VISIBILIDAD
+   ========================================================= */
+
+.hidden {
+  display: none !important;
+}
+
+.visible {
+  visibility: visible;
+}
+
+.invisible {
+  visibility: hidden;
+}
+
+
+/* =========================================================
+   CURSORES
+   ========================================================= */
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.cursor-not-allowed {
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   TRUNCADO DE TEXTO
+   ========================================================= */
+
+.truncate {
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+
+  overflow: hidden;
+
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+
+/* =========================================================
+   ACCESIBILIDAD
+   ========================================================= */
+
+/*
+   Oculta visualmente un elemento, pero lo mantiene
+   disponible para lectores de pantalla.
+*/
+
+.sr-only {
+  position: absolute;
+
+  width: 1px;
+  height: 1px;
+
+  padding: 0;
+  margin: -1px;
+
+  overflow: hidden;
+
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+
+  border: 0;
+}
+
+
+/* =========================================================
+   SCROLL
+   ========================================================= */
+
+.no-scroll {
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   SELECCIÓN
+   ========================================================= */
+
+::selection {
+  color: var(--color-text-light);
+  background-color: var(--color-primary);
+}

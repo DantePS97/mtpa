@@ -1,0 +1,489 @@
+/* =========================================================
+   M.T.P.A. - RESET CSS
+   Mejora Técnica de Producción Avícola
+
+   Normaliza los estilos predeterminados del navegador
+   para proporcionar una base consistente a la aplicación.
+   ========================================================= */
+
+
+/* =========================================================
+   BOX SIZING
+   ========================================================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   DOCUMENTO
+   ========================================================= */
+
+html {
+  margin: 0;
+  padding: 0;
+
+  font-size: 100%;
+
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+
+  scroll-behavior: smooth;
+}
+
+
+/* =========================================================
+   BODY
+   ========================================================= */
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+
+  margin: 0;
+  padding: 0;
+
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+
+  color: var(--color-text-primary);
+  background-color: var(--color-background);
+
+  text-rendering: optimizeLegibility;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+
+/* =========================================================
+   ELEMENTO RAÍZ DE REACT
+   ========================================================= */
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+
+/* =========================================================
+   ENCABEZADOS Y TEXTO
+   ========================================================= */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+figure,
+dl,
+dd {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+
+/* =========================================================
+   LISTAS
+   ========================================================= */
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+
+/* =========================================================
+   ENLACES
+   ========================================================= */
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: none;
+}
+
+
+/* =========================================================
+   BOTONES
+   ========================================================= */
+
+button {
+  margin: 0;
+
+  font: inherit;
+  color: inherit;
+
+  background: none;
+
+  border: none;
+
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   FORMULARIOS
+   ========================================================= */
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+
+input,
+textarea,
+select {
+  margin: 0;
+
+  color: inherit;
+
+  background-color: transparent;
+
+  border-radius: 0;
+}
+
+textarea {
+  resize: vertical;
+}
+
+select {
+  cursor: pointer;
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   PLACEHOLDERS
+   ========================================================= */
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--input-placeholder);
+  opacity: 1;
+}
+
+
+/* =========================================================
+   CHECKBOX Y RADIO
+   ========================================================= */
+
+input[type="checkbox"],
+input[type="radio"] {
+  padding: 0;
+
+  cursor: pointer;
+}
+
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   INPUT SEARCH
+   ========================================================= */
+
+input[type="search"] {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+
+/* Elimina el botón de limpiar de algunos navegadores */
+
+input[type="search"]::-webkit-search-cancel-button {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+
+/* =========================================================
+   INPUT NUMBER
+   ========================================================= */
+
+/*
+   Mantiene los controles numéricos del navegador.
+   No eliminamos las flechas porque son útiles para
+   accesibilidad y para configurar valores ambientales.
+*/
+
+
+/* =========================================================
+   IMÁGENES Y MULTIMEDIA
+   ========================================================= */
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+
+  max-width: 100%;
+}
+
+img,
+video {
+  height: auto;
+}
+
+
+/* =========================================================
+   SVG
+   ========================================================= */
+
+svg {
+  overflow: visible;
+}
+
+
+/* =========================================================
+   TABLAS
+   ========================================================= */
+
+table {
+  width: 100%;
+
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+}
+
+th,
+td {
+  padding: 0;
+}
+
+
+/* =========================================================
+   ELEMENTOS SEMÁNTICOS
+   ========================================================= */
+
+main,
+header,
+footer,
+nav,
+section,
+article,
+aside {
+  display: block;
+}
+
+
+/* =========================================================
+   HR
+   ========================================================= */
+
+hr {
+  height: 0;
+
+  margin: 0;
+
+  border: 0;
+  border-top: var(--border-default);
+}
+
+
+/* =========================================================
+   FIELDSET Y LEGEND
+   ========================================================= */
+
+fieldset {
+  min-width: 0;
+
+  margin: 0;
+  padding: 0;
+
+  border: 0;
+}
+
+legend {
+  padding: 0;
+}
+
+
+/* =========================================================
+   DETAILS Y SUMMARY
+   ========================================================= */
+
+summary {
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   DIALOG
+   ========================================================= */
+
+dialog {
+  margin: auto;
+  padding: 0;
+
+  color: inherit;
+
+  background-color: var(--color-surface);
+
+  border: none;
+}
+
+
+/* =========================================================
+   ELEMENTOS OCULTOS
+   ========================================================= */
+
+[hidden] {
+  display: none !important;
+}
+
+
+/* =========================================================
+   FOCUS
+   ========================================================= */
+
+/*
+   No eliminamos completamente el outline porque es
+   necesario para la navegación mediante teclado.
+*/
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+
+/* =========================================================
+   SELECCIÓN DE TEXTO
+   ========================================================= */
+
+::selection {
+  color: var(--color-text-light);
+  background-color: var(--color-primary);
+}
+
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+/*
+   Personalización ligera para navegadores WebKit.
+   La aplicación continúa funcionando normalmente
+   en navegadores que no soporten estas propiedades.
+*/
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: var(--color-background-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-border-dark);
+
+  border: 2px solid var(--color-background-secondary);
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-muted);
+}
+
+
+/* =========================================================
+   REDUCCIÓN DE MOVIMIENTO
+   ========================================================= */
+
+/*
+   Respeta la preferencia del usuario cuando solicita
+   reducir animaciones y transiciones.
+*/
+
+@media (prefers-reduced-motion: reduce) {
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* =========================================================
+   IMPRESIÓN
+   ========================================================= */
+
+@media print {
+
+  body {
+    color: #000000;
+    background-color: #ffffff;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  img,
+  svg {
+    page-break-inside: avoid;
+  }
+}
