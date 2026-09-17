@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------
+    // Colección: usuarios/{uid}
+    //
+    // Lectura: el propio usuario autenticado, o cualquier
+    // administrador (via custom claim "role").
+    //
+    // Escritura: exclusiva de administradores. La creación,
+    // edición y desactivación de usuarios se hace siempre a
+    // través de la Cloud Function "gestionarUsuario", nunca
+    // por escritura directa del cliente.
+    // ---------------------------------------------------------
+    match /usuarios/{uid} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == uid ||
+         request.auth.token.role == "administrador");
+
+      allow write: if request.auth != null &&
+        request.auth.token.role == "administrador";
+    }
+
+    // ---------------------------------------------------------
+    // Fallback por defecto: cualquier documento no contemplado
+    // explícitamente arriba queda denegado tanto en lectura
+    // como en escritura.
+    // ---------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
