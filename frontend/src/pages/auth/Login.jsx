@@ -2,11 +2,34 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import authRepository from "../../repositories/authRepository";
-import usuariosRepository from "../../repositories/usuariosRepository";
 import { ROUTES } from "../../utils/constants";
-import { isValidRole } from "../../utils/permissions";
 
 import "./Login.css";
+
+// =========================================================
+// MENSAJES DE ERROR DE FIREBASE AUTHENTICATION
+// =========================================================
+//
+// No se muestra nunca el err.message crudo del SDK: son
+// mensajes en inglés, pensados para debugging, no para un
+// usuario final.
+// =========================================================
+
+const MENSAJES_ERROR_AUTH = {
+  "auth/invalid-credential": "Correo o contraseña incorrectos.",
+  "auth/wrong-password": "Correo o contraseña incorrectos.",
+  "auth/user-not-found": "Correo o contraseña incorrectos.",
+  "auth/invalid-email": "El correo ingresado no es válido.",
+  "auth/user-disabled":
+    "Esta cuenta fue deshabilitada. Contacte a un administrador.",
+  "auth/too-many-requests":
+    "Demasiados intentos fallidos. Intente nuevamente más tarde.",
+  "auth/network-request-failed":
+    "No fue posible conectar con el servidor. Revise su conexión.",
+};
+
+const MENSAJE_ERROR_GENERICO =
+  "No fue posible iniciar sesión. Intente nuevamente.";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -38,36 +61,19 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const credenciales = await authRepository.login(
-        form.correo,
-        form.contraseña
-      );
+      await authRepository.login(form.correo, form.contraseña);
 
-      const uid = credenciales.user.uid;
-
-      const usuario = await usuariosRepository.obtenerUsuarioActual(uid);
-
-      if (!usuario || !isValidRole(usuario.rol)) {
-        setError("El usuario no tiene un rol válido.");
-        await authRepository.logout();
-        return;
-      }
-
-      if (usuario.activo === false) {
-        setError("El usuario está desactivado. Contacte a un administrador.");
-        await authRepository.logout();
-        return;
-      }
-
+      // No se valida acá ni el rol ni si el usuario está activo: esa
+      // lectura ya la hace AuthContext (única fuente de verdad de la
+      // sesión) cuando reacciona a este mismo login vía
+      // onAuthStateChanged. Validarlo también acá generaba una
+      // carrera entre dos lecturas independientes de
+      // usuariosRepository.obtenerUsuarioActual. ProtectedRoute se
+      // encarga de redirigir a /login o /sin-autorizacion si el
+      // usuario terminara sin sesión válida o sin rol válido.
       navigate(ROUTES.DASHBOARD);
     } catch (err) {
-      setError(
-        err?.code === "auth/invalid-credential" ||
-          err?.code === "auth/wrong-password" ||
-          err?.code === "auth/user-not-found"
-          ? "Correo o contraseña incorrectos."
-          : err?.message || "No fue posible iniciar sesión."
-      );
+      setError(MENSAJES_ERROR_AUTH[err?.code] || MENSAJE_ERROR_GENERICO);
     } finally {
       setLoading(false);
     }
