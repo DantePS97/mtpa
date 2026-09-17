@@ -1,69 +1,72 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import authRepository from "../../repositories/authRepository";
+import usuariosRepository from "../../repositories/usuariosRepository";
+import { ROUTES } from "../../utils/constants";
+import { isValidRole } from "../../utils/permissions";
+
+import "./Login.css";
 
 const Login = () => {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    email: "",
-    password: "",
+    correo: "",
+    contraseña: "",
   });
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+
+    if (error) {
+      setError("");
+    }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const response = await authRepository.login(
-        form.email,
-        form.password
+      const credenciales = await authRepository.login(
+        form.correo,
+        form.contraseña
       );
 
-      // Ajusta esta línea si tu backend utiliza otra estructura.
-      const user = response.user || response;
-      const role = user.role;
+      const uid = credenciales.user.uid;
 
-      // Guardar sesión si tu aplicación utiliza localStorage.
-      localStorage.setItem("user", JSON.stringify(user));
+      const usuario = await usuariosRepository.obtenerUsuarioActual(uid);
 
-      if (response.token) {
-        localStorage.setItem("token", response.token);
+      if (!usuario || !isValidRole(usuario.rol)) {
+        setError("El usuario no tiene un rol válido.");
+        await authRepository.logout();
+        return;
       }
 
-      // Redirección según el rol.
-      switch (role) {
-        case "ADMIN":
-          navigate("/admin");
-          break;
-
-        case "TECNICO":
-          navigate("/tecnico");
-          break;
-
-        case "CLIENTE":
-          navigate("/cliente");
-          break;
-
-        default:
-          setError("El usuario no tiene un rol válido.");
+      if (usuario.activo === false) {
+        setError("El usuario está desactivado. Contacte a un administrador.");
+        await authRepository.logout();
+        return;
       }
+
+      navigate(ROUTES.DASHBOARD);
     } catch (err) {
       setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Correo o contraseña incorrectos."
+        err?.code === "auth/invalid-credential" ||
+          err?.code === "auth/wrong-password" ||
+          err?.code === "auth/user-not-found"
+          ? "Correo o contraseña incorrectos."
+          : err?.message || "No fue posible iniciar sesión."
       );
     } finally {
       setLoading(false);
@@ -71,46 +74,53 @@ const Login = () => {
   };
 
   return (
-    <div className="login-container">
-      <form className="login-form" onSubmit={handleSubmit}>
-        <h1>Iniciar sesión</h1>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-header">
+          <h1>Iniciar sesión</h1>
+          <p>M.T.P.A. — Mejora Técnica de Producción Avícola</p>
+        </div>
 
-        {error && (
-          <div className="login-error">
-            {error}
+        <form className="login-form" onSubmit={handleSubmit}>
+          {error && (
+            <div className="login-error" role="alert">
+              {error}
+            </div>
+          )}
+
+          <div className="form-group">
+            <label htmlFor="correo">Correo electrónico</label>
+            <input
+              id="correo"
+              name="correo"
+              type="email"
+              value={form.correo}
+              onChange={handleChange}
+              placeholder="Ingrese su correo"
+              disabled={loading}
+              required
+            />
           </div>
-        )}
 
-        <div className="form-group">
-          <label htmlFor="email">Correo electrónico</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={handleChange}
-            placeholder="Ingrese su correo"
-            required
-          />
-        </div>
+          <div className="form-group">
+            <label htmlFor="contraseña">Contraseña</label>
+            <input
+              id="contraseña"
+              name="contraseña"
+              type="password"
+              value={form.contraseña}
+              onChange={handleChange}
+              placeholder="Ingrese su contraseña"
+              disabled={loading}
+              required
+            />
+          </div>
 
-        <div className="form-group">
-          <label htmlFor="password">Contraseña</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            value={form.password}
-            onChange={handleChange}
-            placeholder="Ingrese su contraseña"
-            required
-          />
-        </div>
-
-        <button type="submit" disabled={loading}>
-          {loading ? "Iniciando sesión..." : "Iniciar sesión"}
-        </button>
-      </form>
+          <button className="login-button" type="submit" disabled={loading}>
+            {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
