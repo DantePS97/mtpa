@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Table from "../../components/common/Table";
 import usuariosRepository from "../../repositories/usuariosRepository";
+import { ROUTES } from "../../utils/constants";
 import "./Usuarios.css";
 
 const Usuarios = () => {
@@ -46,13 +47,9 @@ const Usuarios = () => {
     try {
       setError("");
 
-      if (typeof usuariosRepository.desactivarUsuario === "function") {
-        await usuariosRepository.desactivarUsuario(usuario.id);
-      } else {
-        await usuariosRepository.gestionarUsuario(usuario.id, {
-          activo: false,
-        });
-      }
+      await usuariosRepository.gestionarUsuario(usuario.id, {
+        activo: false,
+      });
 
       await cargarUsuarios();
     } catch (err) {
@@ -99,7 +96,9 @@ const Usuarios = () => {
           <button
             type="button"
             className="btn-edit"
-            onClick={() => navigate(`/usuarios/editar/${usuario.id}`)}
+            onClick={() =>
+              navigate(ROUTES.USER_EDIT.replace(":id", usuario.id))
+            }
           >
             Editar
           </button>
