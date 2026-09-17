@@ -15,6 +15,9 @@ import usuariosRepository from "../repositories/usuariosRepository";
 // vive el rol real del usuario).
 // =========================================================
 
+// El contexto se exporta junto al provider a propósito, para que
+// hooks/useAuth.js pueda usarlo con useContext() sin recrearlo.
+// eslint-disable-next-line react-refresh/only-export-components
 export const AuthContext = createContext(undefined);
 
 export const AuthProvider = ({ children }) => {
