@@ -126,11 +126,26 @@ exports.gestionarUsuario = functions.https.onCall(async (data, context) => {
     if (data.nombre !== undefined) cambios.nombre = data.nombre;
     if (data.correo !== undefined) cambios.correo = data.correo;
     if (data.rol !== undefined) cambios.rol = data.rol;
+    if (data.activo !== undefined) cambios.activo = data.activo;
 
     if (Object.keys(cambios).length === 0) {
       throw new functions.https.HttpsError(
         "invalid-argument",
         "No se recibió ningún campo para editar."
+      );
+    }
+
+    // Se valida que el uid exista en Authentication ANTES de escribir
+    // nada en Firestore, para no dejar documentos huérfanos apuntando
+    // a un usuario de Auth inexistente.
+    let usuarioAuthActual;
+
+    try {
+      usuarioAuthActual = await admin.auth().getUser(data.uid);
+    } catch (error) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "El usuario no existe."
       );
     }
 
@@ -145,8 +160,20 @@ exports.gestionarUsuario = functions.https.onCall(async (data, context) => {
         .setCustomUserClaims(data.uid, { role: data.rol });
     }
 
-    if (data.correo !== undefined) {
+    // Solo se toca Authentication si el correo realmente cambió, para
+    // no disparar una actualización (y su verificación) innecesaria.
+    if (
+      data.correo !== undefined &&
+      data.correo !== usuarioAuthActual.email
+    ) {
       await admin.auth().updateUser(data.uid, { email: data.correo });
+    }
+
+    // Se mantiene Authentication en espejo del campo "activo": un
+    // usuario editado a activo:false queda deshabilitado igual que si
+    // se hubiera usado la acción "desactivar".
+    if (data.activo !== undefined) {
+      await admin.auth().updateUser(data.uid, { disabled: !data.activo });
     }
 
     return { uid: data.uid };
@@ -156,12 +183,27 @@ exports.gestionarUsuario = functions.https.onCall(async (data, context) => {
   // 5. DESACTIVAR
   // ---------------------------------------------------------
   if (accion === "desactivar") {
+    try {
+      await admin.auth().getUser(data.uid);
+    } catch (error) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "El usuario no existe."
+      );
+    }
+
     await db.collection(COLECCION_USUARIOS).doc(data.uid).set(
       { activo: false },
       { merge: true }
     );
 
     await admin.auth().updateUser(data.uid, { disabled: true });
+
+    // Deshabilitar la cuenta no invalida los tokens de sesión ya
+    // emitidos: hay que revocarlos explícitamente para que una sesión
+    // activa del cliente deje de considerarse válida en el próximo
+    // refresh del ID token.
+    await admin.auth().revokeRefreshTokens(data.uid);
 
     return { uid: data.uid };
   }
