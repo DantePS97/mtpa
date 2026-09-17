@@ -53,6 +53,15 @@ adicional de Repository para aislar el acceso a datos:
   cliente nunca escribe directamente en colecciones sensibles como
   `usuarios`; siempre lo hace invocando una Cloud Function callable.
 
+## Bootstrap del primer administrador
+
+`gestionarUsuario` exige rol `administrador` incluso para crear un
+usuario nuevo, por lo que la aplicación no puede crear por sí sola al
+primer administrador de un proyecto de Firebase. Ese caso puntual se
+resuelve con un script standalone (`functions/scripts/crear-primer-admin.js`,
+que no se despliega como Cloud Function) documentado en
+`docs/bootstrap-admin.md`.
+
 ## Servicio de Integración IoT (Sprint 2 — fuera de alcance)
 
 Es un servicio Node.js independiente que:
