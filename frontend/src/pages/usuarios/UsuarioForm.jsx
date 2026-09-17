@@ -1,7 +1,7 @@
-```jsx
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import usuariosRepository from "../../repositories/usuariosRepository";
+import { ROLES, ROLE_LABELS } from "../../utils/constants";
 import "./UsuarioForm.css";
 
 const UsuarioForm = () => {
@@ -213,16 +213,16 @@ const UsuarioForm = () => {
                 Seleccione un rol
               </option>
 
-              <option value="ADMIN">
-                Administrador
+              <option value={ROLES.ADMIN}>
+                {ROLE_LABELS[ROLES.ADMIN]}
               </option>
 
-              <option value="OPERADOR">
-                Operador
+              <option value={ROLES.OPERATOR}>
+                {ROLE_LABELS[ROLES.OPERATOR]}
               </option>
 
-              <option value="CONSULTA">
-                Usuario de consulta
+              <option value={ROLES.VIEWER}>
+                {ROLE_LABELS[ROLES.VIEWER]}
               </option>
             </select>
           </div>
@@ -256,4 +256,3 @@ const UsuarioForm = () => {
 };
 
 export default UsuarioForm;
-```
