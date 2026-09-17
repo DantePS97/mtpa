@@ -1,4 +1,3 @@
-```jsx
 import { Outlet } from "react-router-dom";
 import "./AuthLayout.css";
 
@@ -11,4 +10,3 @@ const AuthLayout = () => {
 };
 
 export default AuthLayout;
-```
