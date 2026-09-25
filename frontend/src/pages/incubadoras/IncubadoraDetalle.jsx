@@ -9,13 +9,17 @@ import "./IncubadoraDetalle.css";
 // Etiquetas legibles para mostrar en esta pantalla. Se mantienen
 // acá (y no en utils/constants.js) porque son puramente de
 // presentación de esta vista de detalle.
+//
+// Solo cubre los 3 tipos que "crearDispositivo" (functions/index.js,
+// TIPOS_DISPOSITIVO_VALIDOS) realmente acepta en esta etapa; cualquier
+// otro valor cae en el fallback de abajo.
 const TIPO_DISPOSITIVO_LABELS = {
   sensor_temperatura: "Sensor de temperatura",
   sensor_humedad: "Sensor de humedad",
-  sensor_temperatura_humedad: "Sensor de temperatura y humedad",
   ventilador: "Ventilador",
-  controlador: "Controlador",
 };
+
+const TIPO_DISPOSITIVO_DESCONOCIDO = "Tipo desconocido";
 
 const ESTADO_CONEXION_LABELS = {
   conectado: "Conectado",
@@ -85,7 +89,8 @@ const IncubadoraDetalle = () => {
       key: "tipo",
       header: "Tipo",
       render: (dispositivo) =>
-        TIPO_DISPOSITIVO_LABELS[dispositivo.tipo] || dispositivo.tipo,
+        TIPO_DISPOSITIVO_LABELS[dispositivo.tipo] ||
+        TIPO_DISPOSITIVO_DESCONOCIDO,
     },
     {
       key: "identificadorMqtt",
