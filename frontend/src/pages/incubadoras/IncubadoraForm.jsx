@@ -175,8 +175,7 @@ const IncubadoraForm = () => {
       setErrorDispositivo("");
       setMensajeDispositivo("");
 
-      const resultado = await incubadorasRepository.gestionarIncubadora({
-        accion: "crear_dispositivo",
+      const resultado = await dispositivosRepository.crearDispositivo({
         incubadoraId: id,
         tipo: tipoDispositivo,
       });
