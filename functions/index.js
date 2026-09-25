@@ -298,24 +298,20 @@ exports.gestionarUsuario = functions.https.onCall(async (data, context) => {
  * Cloud Function callable: gestionarIncubadora
  *
  * Único punto de entrada autorizado para crear, editar o
- * desactivar incubadoras, y para dar de alta un dispositivo
- * asociado a una de ellas. El cliente nunca escribe
- * directamente en las colecciones "incubadoras" ni
- * "dispositivos" (ver firestore.rules).
+ * desactivar incubadoras. El cliente nunca escribe
+ * directamente en la colección "incubadoras" (ver
+ * firestore.rules). El alta de dispositivos vive en su propia
+ * Cloud Function ("crearDispositivo", más abajo): mezclarla acá
+ * hacía que una sola función resolviera 4 operaciones distintas.
  *
  * Datos esperados (data):
  * {
- *   accion: "crear" | "editar" | "desactivar" | "crear_dispositivo",
+ *   accion: "crear" | "editar" | "desactivar",
  *
- *   // Incubadora ("crear" / "editar" / "desactivar")
  *   id: string,          // requerido para "editar" y "desactivar"
  *   nombre: string,       // requerido para "crear", opcional para "editar"
  *   ubicacion: string,    // requerido para "crear", opcional para "editar"
  *   estado: string,       // "activa" | "inactiva", opcional (default "activa" al crear)
- *
- *   // Dispositivo ("crear_dispositivo")
- *   incubadoraId: string, // id de la incubadora dueña del dispositivo
- *   tipo: string,         // "sensor_temperatura" | "sensor_humedad" | "ventilador"
  * }
  */
 exports.gestionarIncubadora = functions.https.onCall(async (data, context) => {
@@ -330,13 +326,10 @@ exports.gestionarIncubadora = functions.https.onCall(async (data, context) => {
 
   const accion = data && data.accion;
 
-  if (
-    !["crear", "editar", "desactivar", "crear_dispositivo"].includes(accion)
-  ) {
+  if (!["crear", "editar", "desactivar"].includes(accion)) {
     throw new functions.https.HttpsError(
       "invalid-argument",
-      'El campo "accion" debe ser "crear", "editar", "desactivar" o ' +
-        '"crear_dispositivo".'
+      'El campo "accion" debe ser "crear", "editar" o "desactivar".'
     );
   }
 
@@ -376,66 +369,6 @@ exports.gestionarIncubadora = functions.https.onCall(async (data, context) => {
     return { id: referencia.id };
   }
 
-  // ---------------------------------------------------------
-  // 3. CREAR_DISPOSITIVO: dar de alta un dispositivo asociado
-  //    a una incubadora existente.
-  // ---------------------------------------------------------
-  if (accion === "crear_dispositivo") {
-    const incubadoraId = data.incubadoraId;
-
-    if (!incubadoraId) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        'El campo "incubadoraId" es obligatorio para dar de alta un ' +
-          "dispositivo."
-      );
-    }
-
-    if (!TIPOS_DISPOSITIVO_VALIDOS.includes(data.tipo)) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        `El tipo "${data.tipo}" no es válido. Los tipos permitidos son: ` +
-          TIPOS_DISPOSITIVO_VALIDOS.join(", ") +
-          "."
-      );
-    }
-
-    // Se valida que la incubadora exista ANTES de escribir el
-    // dispositivo, para no dejar dispositivos huérfanos apuntando
-    // a una incubadora inexistente (mismo patrón que "editar" en
-    // gestionarUsuario).
-    const incubadoraSnapshot = await db
-      .collection(COLECCION_INCUBADORAS)
-      .doc(incubadoraId)
-      .get();
-
-    if (!incubadoraSnapshot.exists) {
-      throw new functions.https.HttpsError(
-        "not-found",
-        "La incubadora indicada no existe."
-      );
-    }
-
-    const identificadorMqtt = await generarIdentificadorMqttUnico(
-      db,
-      incubadoraId,
-      data.tipo
-    );
-
-    const referencia = db.collection(COLECCION_DISPOSITIVOS).doc();
-
-    await referencia.set({
-      incubadoraId,
-      tipo: data.tipo,
-      identificadorMqtt,
-      estadoConexion: "desconocido",
-      ultimaComunicacionEn: null,
-      creadoEn: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    return { id: referencia.id, identificadorMqtt };
-  }
-
   // A partir de acá (editar/desactivar) se requiere el id de la incubadora.
   if (!data.id) {
     throw new functions.https.HttpsError(
@@ -458,7 +391,7 @@ exports.gestionarIncubadora = functions.https.onCall(async (data, context) => {
   }
 
   // ---------------------------------------------------------
-  // 4. EDITAR
+  // 3. EDITAR
   // ---------------------------------------------------------
   if (accion === "editar") {
     const cambios = {};
@@ -512,7 +445,7 @@ exports.gestionarIncubadora = functions.https.onCall(async (data, context) => {
   }
 
   // ---------------------------------------------------------
-  // 5. DESACTIVAR
+  // 4. DESACTIVAR
   // ---------------------------------------------------------
   if (accion === "desactivar") {
     await referenciaIncubadora.set({ estado: "inactiva" }, { merge: true });
@@ -522,4 +455,88 @@ exports.gestionarIncubadora = functions.https.onCall(async (data, context) => {
 
   // No debería alcanzarse nunca (accion ya fue validada arriba).
   throw new functions.https.HttpsError("internal", "Acción no soportada.");
+});
+
+/**
+ * Cloud Function callable: crearDispositivo
+ *
+ * Único punto de entrada autorizado para dar de alta un
+ * dispositivo asociado a una incubadora existente. Se separó de
+ * "gestionarIncubadora" (que antes mezclaba el CRUD de
+ * incubadoras con el alta de dispositivos en una sola función)
+ * para que cada Cloud Function resuelva una única operación. El
+ * cliente nunca escribe directamente en la colección
+ * "dispositivos" (ver firestore.rules).
+ *
+ * Datos esperados (data):
+ * {
+ *   incubadoraId: string, // id de la incubadora dueña del dispositivo
+ *   tipo: string,         // "sensor_temperatura" | "sensor_humedad" | "ventilador"
+ * }
+ */
+exports.crearDispositivo = functions.https.onCall(async (data, context) => {
+  // ---------------------------------------------------------
+  // 1. Autenticación y autorización: solo administradores.
+  // ---------------------------------------------------------
+  requireRole(
+    context,
+    ["administrador"],
+    "Solo un administrador puede gestionar dispositivos."
+  );
+
+  const incubadoraId = data && data.incubadoraId;
+
+  if (!incubadoraId) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      'El campo "incubadoraId" es obligatorio para dar de alta un ' +
+        "dispositivo."
+    );
+  }
+
+  if (!TIPOS_DISPOSITIVO_VALIDOS.includes(data.tipo)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      `El tipo "${data.tipo}" no es válido. Los tipos permitidos son: ` +
+        TIPOS_DISPOSITIVO_VALIDOS.join(", ") +
+        "."
+    );
+  }
+
+  const db = admin.firestore();
+
+  // Se valida que la incubadora exista ANTES de escribir el
+  // dispositivo, para no dejar dispositivos huérfanos apuntando a
+  // una incubadora inexistente (mismo patrón que "editar" en
+  // gestionarUsuario/gestionarIncubadora).
+  const incubadoraSnapshot = await db
+    .collection(COLECCION_INCUBADORAS)
+    .doc(incubadoraId)
+    .get();
+
+  if (!incubadoraSnapshot.exists) {
+    throw new functions.https.HttpsError(
+      "not-found",
+      "La incubadora indicada no existe."
+    );
+  }
+
+  const identificadorMqtt = await generarIdentificadorMqttUnico(
+    db,
+    incubadoraId,
+    data.tipo
+  );
+
+  const referencia = db.collection(COLECCION_DISPOSITIVOS).doc();
+
+  await referencia.set({
+    incubadoraId,
+    tipo: data.tipo,
+    identificadorMqtt,
+    estadoConexion: "desconocido",
+    ultimaComunicacionEn: null,
+    creadoEn: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return { id: referencia.id, identificadorMqtt };
 });

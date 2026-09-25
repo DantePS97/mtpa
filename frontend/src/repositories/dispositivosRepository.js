@@ -54,8 +54,12 @@ export const listarDispositivosPorIncubadora = async (incubadoraId) => {
 // =========================================================
 
 /**
- * Invoca la Cloud Function callable "gestionarIncubadora" con
- * la acción "crear_dispositivo".
+ * Invoca la Cloud Function callable "crearDispositivo".
+ *
+ * Nota: el alta de dispositivos vivía originalmente como una
+ * acción más de "gestionarIncubadora" (accion: "crear_dispositivo"),
+ * pero se separó en su propia Cloud Function para que cada una
+ * resuelva una única operación (ver functions/index.js).
  *
  * @param {Object} datos
  * @param {string} datos.incubadoraId Id de la incubadora dueña del dispositivo.
@@ -63,12 +67,9 @@ export const listarDispositivosPorIncubadora = async (incubadoraId) => {
  * @returns {Promise<Object>} `{ id, identificadorMqtt }`
  */
 export const crearDispositivo = async (datos) => {
-  const callable = httpsCallable(functions, "gestionarIncubadora");
+  const callable = httpsCallable(functions, "crearDispositivo");
 
-  const resultado = await callable({
-    accion: "crear_dispositivo",
-    ...datos,
-  });
+  const resultado = await callable(datos);
 
   return resultado.data;
 };
