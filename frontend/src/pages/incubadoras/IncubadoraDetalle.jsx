@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Table from "../../components/common/Table";
 import incubadorasRepository from "../../repositories/incubadorasRepository";
 import dispositivosRepository from "../../repositories/dispositivosRepository";
-import { ROUTES } from "../../utils/constants";
+import { DEVICE_TYPES, INCUBATOR_STATUS, ROUTES } from "../../utils/constants";
 import "./IncubadoraDetalle.css";
 
 // Etiquetas legibles para mostrar en esta pantalla. Se mantienen
@@ -14,9 +14,9 @@ import "./IncubadoraDetalle.css";
 // TIPOS_DISPOSITIVO_VALIDOS) realmente acepta en esta etapa; cualquier
 // otro valor cae en el fallback de abajo.
 const TIPO_DISPOSITIVO_LABELS = {
-  sensor_temperatura: "Sensor de temperatura",
-  sensor_humedad: "Sensor de humedad",
-  ventilador: "Ventilador",
+  [DEVICE_TYPES.TEMPERATURE_SENSOR]: "Sensor de temperatura",
+  [DEVICE_TYPES.HUMIDITY_SENSOR]: "Sensor de humedad",
+  [DEVICE_TYPES.FAN]: "Ventilador",
 };
 
 const TIPO_DISPOSITIVO_DESCONOCIDO = "Tipo desconocido";
@@ -168,12 +168,14 @@ const IncubadoraDetalle = () => {
                 <dd>
                   <span
                     className={`estado-badge ${
-                      incubadora.estado === "activa"
+                      incubadora.estado === INCUBATOR_STATUS.ACTIVE
                         ? "estado-activo"
                         : "estado-inactivo"
                     }`}
                   >
-                    {incubadora.estado === "activa" ? "Activa" : "Inactiva"}
+                    {incubadora.estado === INCUBATOR_STATUS.ACTIVE
+                      ? "Activa"
+                      : "Inactiva"}
                   </span>
                 </dd>
               </div>

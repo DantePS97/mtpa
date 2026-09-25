@@ -2,23 +2,23 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import incubadorasRepository from "../../repositories/incubadorasRepository";
 import dispositivosRepository from "../../repositories/dispositivosRepository";
-import { ROUTES } from "../../utils/constants";
+import { DEVICE_TYPES, INCUBATOR_STATUS, ROUTES } from "../../utils/constants";
 import "./IncubadoraForm.css";
 
-// Valores exactos aceptados por gestionarIncubadora (ver
-// functions/index.js). No se usan otros estados/tipos en este
+// Valores exactos aceptados por gestionarIncubadora/crearDispositivo
+// (ver functions/index.js). No se usan otros estados/tipos en este
 // formulario aunque frontend/src/utils/constants.js defina más
 // (esos otros los escribe el Servicio de Integración IoT, no el
 // alta/edición manual).
 const ESTADOS_INCUBADORA = [
-  { value: "activa", label: "Activa" },
-  { value: "inactiva", label: "Inactiva" },
+  { value: INCUBATOR_STATUS.ACTIVE, label: "Activa" },
+  { value: INCUBATOR_STATUS.INACTIVE, label: "Inactiva" },
 ];
 
 const TIPOS_DISPOSITIVO = [
-  { value: "sensor_temperatura", label: "Sensor de temperatura" },
-  { value: "sensor_humedad", label: "Sensor de humedad" },
-  { value: "ventilador", label: "Ventilador" },
+  { value: DEVICE_TYPES.TEMPERATURE_SENSOR, label: "Sensor de temperatura" },
+  { value: DEVICE_TYPES.HUMIDITY_SENSOR, label: "Sensor de humedad" },
+  { value: DEVICE_TYPES.FAN, label: "Ventilador" },
 ];
 
 const IncubadoraForm = () => {
@@ -30,7 +30,7 @@ const IncubadoraForm = () => {
   const [formData, setFormData] = useState({
     nombre: "",
     ubicacion: "",
-    estado: "activa",
+    estado: INCUBATOR_STATUS.ACTIVE,
   });
 
   const [errores, setErrores] = useState({});
@@ -61,7 +61,7 @@ const IncubadoraForm = () => {
       setFormData({
         nombre: incubadora.nombre || "",
         ubicacion: incubadora.ubicacion || "",
-        estado: incubadora.estado || "activa",
+        estado: incubadora.estado || INCUBATOR_STATUS.ACTIVE,
       });
 
       await cargarDispositivos();

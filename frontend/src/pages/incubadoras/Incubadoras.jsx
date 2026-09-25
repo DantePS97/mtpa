@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Table from "../../components/common/Table";
 import incubadorasRepository from "../../repositories/incubadorasRepository";
-import { ROUTES } from "../../utils/constants";
+import { INCUBATOR_STATUS, ROUTES } from "../../utils/constants";
 import "./Incubadoras.css";
 
 const Incubadoras = () => {
@@ -48,12 +48,14 @@ const Incubadoras = () => {
       render: (incubadora) => (
         <span
           className={`estado-badge ${
-            incubadora.estado === "activa"
+            incubadora.estado === INCUBATOR_STATUS.ACTIVE
               ? "estado-activo"
               : "estado-inactivo"
           }`}
         >
-          {incubadora.estado === "activa" ? "Activa" : "Inactiva"}
+          {incubadora.estado === INCUBATOR_STATUS.ACTIVE
+            ? "Activa"
+            : "Inactiva"}
         </span>
       ),
     },
