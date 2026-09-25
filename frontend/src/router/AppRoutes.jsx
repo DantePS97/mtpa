@@ -7,6 +7,7 @@ import Login from "../pages/auth/Login";
 import Dashboard from "../pages/dashboard/Dashboard";
 import Incubadoras from "../pages/incubadoras/Incubadoras";
 import IncubadoraDetalle from "../pages/incubadoras/IncubadoraDetalle";
+import IncubadoraForm from "../pages/incubadoras/IncubadoraForm";
 import Usuarios from "../pages/usuarios/Usuarios";
 import UsuarioForm from "../pages/usuarios/UsuarioForm";
 import NotFound from "../pages/errors/NotFound";
@@ -55,6 +56,15 @@ const AppRoutes = () => {
             <Route path={ROUTES.USERS} element={<Usuarios />} />
             <Route path={ROUTES.USER_CREATE} element={<UsuarioForm />} />
             <Route path={ROUTES.USER_EDIT} element={<UsuarioForm />} />
+
+            <Route
+              path={ROUTES.INCUBATOR_CREATE}
+              element={<IncubadoraForm />}
+            />
+            <Route
+              path={ROUTES.INCUBATOR_EDIT}
+              element={<IncubadoraForm />}
+            />
           </Route>
         </Route>
       </Route>
