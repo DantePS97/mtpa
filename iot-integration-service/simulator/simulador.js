@@ -13,56 +13,14 @@
 // Ver docs/contrato-mqtt.md para la convención de tópicos.
 // =========================================================
 
-const fs = require("fs");
 const path = require("path");
-const mqtt = require("mqtt");
+const { cargarVariablesDeEntorno } = require("../lib/env");
+const { conectarCliente } = require("../lib/mqtt-client");
 
-// =========================================================
-// Carga de variables de entorno
-//
 // Reutiliza el mismo ".env" del servicio principal (un nivel
 // arriba), ya que el simulador se conecta al mismo broker con
 // las mismas credenciales.
-// =========================================================
-
-function cargarVariablesDeEntorno() {
-  const rutaEnv = path.join(__dirname, "..", ".env");
-
-  if (!fs.existsSync(rutaEnv)) {
-    return;
-  }
-
-  const contenido = fs.readFileSync(rutaEnv, "utf-8");
-
-  contenido.split("\n").forEach((linea) => {
-    const lineaLimpia = linea.trim();
-
-    if (!lineaLimpia || lineaLimpia.startsWith("#")) {
-      return;
-    }
-
-    const indiceIgual = lineaLimpia.indexOf("=");
-    if (indiceIgual === -1) {
-      return;
-    }
-
-    const clave = lineaLimpia.slice(0, indiceIgual).trim();
-    let valor = lineaLimpia.slice(indiceIgual + 1).trim();
-
-    if (
-      (valor.startsWith('"') && valor.endsWith('"')) ||
-      (valor.startsWith("'") && valor.endsWith("'"))
-    ) {
-      valor = valor.slice(1, -1);
-    }
-
-    if (process.env[clave] === undefined) {
-      process.env[clave] = valor;
-    }
-  });
-}
-
-cargarVariablesDeEntorno();
+cargarVariablesDeEntorno(path.join(__dirname, "..", ".env"));
 
 // =========================================================
 // Configuración desde variables de entorno (ver .env.example)
@@ -116,15 +74,12 @@ const TOPICO_ESTADO_VENTILADOR = `${MQTT_TOPIC_PREFIX}/${INCUBADORA_ID}/ventilad
 // Conexión TLS al broker MQTT
 // =========================================================
 
-const MQTT_URL = `mqtts://${MQTT_HOST}:${MQTT_PORT}`;
-
-const cliente = mqtt.connect(MQTT_URL, {
-  username: MQTT_USERNAME,
-  password: MQTT_PASSWORD,
-  rejectUnauthorized: true,
-  reconnectPeriod: 5000,
-  connectTimeout: 30000,
-  clientId: `mtpa-simulador-${Math.random().toString(16).slice(2, 10)}`,
+const cliente = conectarCliente({
+  host: MQTT_HOST,
+  puerto: MQTT_PORT,
+  usuario: MQTT_USERNAME,
+  contrasena: MQTT_PASSWORD,
+  clientIdPrefijo: "mtpa-simulador",
 });
 
 // =========================================================
