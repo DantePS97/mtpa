@@ -5,14 +5,14 @@
 //
 // Única capa autorizada a hablar directamente con Firestore
 // para leer la colección "dispositivos", y con la Cloud
-// Function "gestionarIncubadora" para dar de alta un
-// dispositivo nuevo (ver functions/index.js, acción
-// "crear_dispositivo").
+// Function "crearDispositivo" para dar de alta un dispositivo
+// nuevo (ver functions/index.js).
 // =========================================================
 
 import {
   collection,
   getDocs,
+  onSnapshot,
   query,
   where,
 } from "firebase/firestore";
@@ -50,6 +50,50 @@ export const listarDispositivosPorIncubadora = async (incubadoraId) => {
 
 
 // =========================================================
+// SUSCRIBIRSE A LOS DISPOSITIVOS DE UNA INCUBADORA (TIEMPO REAL)
+// =========================================================
+
+/**
+ * Se suscribe (onSnapshot) a los dispositivos de la colección
+ * "dispositivos" cuyo campo "incubadoraId" coincide con el id
+ * indicado, para reflejar en tiempo real cambios de
+ * "estadoConexion" (por ejemplo, cuando el Servicio de
+ * Integración IoT marque un dispositivo como "desconectado" en
+ * Sprint 3), en vez de depender de una lectura única.
+ *
+ * @param {string} incubadoraId
+ * @param {(dispositivos: Object[]) => void} onCambio Se invoca con la
+ * lista actualizada de dispositivos cada vez que cambia algo en Firestore.
+ * @param {(error: Error) => void} [onError]
+ * @returns {() => void} Función "unsubscribe": hay que invocarla en el
+ * cleanup del efecto que la usa para no dejar el listener colgado.
+ */
+export const suscribirseADispositivosPorIncubadora = (
+  incubadoraId,
+  onCambio,
+  onError
+) => {
+  const referencia = query(
+    collection(db, COLLECTIONS.DEVICES),
+    where("incubadoraId", "==", incubadoraId)
+  );
+
+  return onSnapshot(
+    referencia,
+    (snapshot) => {
+      const dispositivos = snapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data(),
+      }));
+
+      onCambio(dispositivos);
+    },
+    onError
+  );
+};
+
+
+// =========================================================
 // DAR DE ALTA UN DISPOSITIVO
 // =========================================================
 
@@ -77,5 +121,6 @@ export const crearDispositivo = async (datos) => {
 
 export default {
   listarDispositivosPorIncubadora,
+  suscribirseADispositivosPorIncubadora,
   crearDispositivo,
 };

@@ -33,27 +33,22 @@ const IncubadoraDetalle = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const cargarDatos = async () => {
+  const cargarIncubadora = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const [incubadoraEncontrada, listaDispositivos] = await Promise.all([
-        incubadorasRepository.obtenerIncubadora(id),
-        dispositivosRepository.listarDispositivosPorIncubadora(id),
-      ]);
+      const incubadoraEncontrada = await incubadorasRepository.obtenerIncubadora(
+        id
+      );
 
       if (!incubadoraEncontrada) {
         setError("La incubadora indicada no existe.");
         setIncubadora(null);
-        setDispositivos([]);
         return;
       }
 
       setIncubadora(incubadoraEncontrada);
-      setDispositivos(
-        Array.isArray(listaDispositivos) ? listaDispositivos : []
-      );
     } catch (err) {
       setError(err?.message || "No fue posible cargar la incubadora.");
     } finally {
@@ -62,7 +57,27 @@ const IncubadoraDetalle = () => {
   };
 
   useEffect(() => {
-    cargarDatos();
+    cargarIncubadora();
+  }, [id]);
+
+  // Dispositivos: se suscribe en tiempo real (onSnapshot) en vez de
+  // hacer una lectura única, para reflejar sin recargar la página
+  // cambios de "estadoConexion" (por ejemplo, cuando el Servicio de
+  // Integración IoT marque un dispositivo "desconectado" en Sprint 3).
+  useEffect(() => {
+    const unsubscribe = dispositivosRepository.suscribirseADispositivosPorIncubadora(
+      id,
+      (listaDispositivos) => {
+        setDispositivos(Array.isArray(listaDispositivos) ? listaDispositivos : []);
+      },
+      (err) => {
+        setError(
+          err?.message || "No fue posible escuchar los dispositivos en tiempo real."
+        );
+      }
+    );
+
+    return () => unsubscribe();
   }, [id]);
 
   const columnasDispositivos = [
