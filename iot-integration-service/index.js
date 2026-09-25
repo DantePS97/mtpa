@@ -95,6 +95,7 @@ if (!MQTT_HOST || !MQTT_USERNAME || !MQTT_PASSWORD) {
 
 const TOPICO_MEDICIONES = `${MQTT_TOPIC_PREFIX}/+/sensores/+/medicion`;
 const TOPICO_ESTADO_VENTILADORES = `${MQTT_TOPIC_PREFIX}/+/ventiladores/+/estado`;
+const TOPICO_LATIDO = `${MQTT_TOPIC_PREFIX}/+/dispositivos/+/latido`;
 
 // =========================================================
 // Conexión TLS al broker MQTT (HiveMQ Cloud)
@@ -124,7 +125,7 @@ cliente.on("connect", () => {
   );
 
   cliente.subscribe(
-    [TOPICO_MEDICIONES, TOPICO_ESTADO_VENTILADORES],
+    [TOPICO_MEDICIONES, TOPICO_ESTADO_VENTILADORES, TOPICO_LATIDO],
     (error) => {
       if (error) {
         console.error("[iot-integration-service] Error al suscribirse:", error);
@@ -132,8 +133,8 @@ cliente.on("connect", () => {
       }
 
       console.log(
-        `[iot-integration-service] Suscripto a "${TOPICO_MEDICIONES}" y ` +
-          `"${TOPICO_ESTADO_VENTILADORES}"`
+        `[iot-integration-service] Suscripto a "${TOPICO_MEDICIONES}", ` +
+          `"${TOPICO_ESTADO_VENTILADORES}" y "${TOPICO_LATIDO}"`
       );
     }
   );
