@@ -312,7 +312,7 @@ const IncubadoraForm = () => {
         </form>
       </div>
 
-      {isEditing && !error && (
+      {isEditing && (
         <div className="incubadora-form-card">
           <h2>Dispositivos</h2>
           <p>Dé de alta un dispositivo asociado a esta incubadora.</p>
