@@ -5,6 +5,7 @@ import DashboardLayout from "../layouts/DashboardLayout";
 
 import Login from "../pages/auth/Login";
 import Dashboard from "../pages/dashboard/Dashboard";
+import Incubadoras from "../pages/incubadoras/Incubadoras";
 import Usuarios from "../pages/usuarios/Usuarios";
 import UsuarioForm from "../pages/usuarios/UsuarioForm";
 import NotFound from "../pages/errors/NotFound";
@@ -42,6 +43,8 @@ const AppRoutes = () => {
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route path={ROUTES.DASHBOARD} element={<Dashboard />} />
+
+          <Route path={ROUTES.INCUBATORS} element={<Incubadoras />} />
 
           <Route element={<RoleRoute roles={[ROLES.ADMIN]} />}>
             <Route path={ROUTES.USERS} element={<Usuarios />} />
