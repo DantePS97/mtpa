@@ -463,8 +463,28 @@ exports.gestionarIncubadora = functions.https.onCall(async (data, context) => {
   if (accion === "editar") {
     const cambios = {};
 
-    if (data.nombre !== undefined) cambios.nombre = data.nombre;
-    if (data.ubicacion !== undefined) cambios.ubicacion = data.ubicacion;
+    // Igual que en "crear": si el campo viene incluido en la petición,
+    // no puede ser un string vacío (evita nombres/ubicaciones en blanco
+    // por un cliente que no validó antes de enviar).
+    if (data.nombre !== undefined) {
+      if (!data.nombre.trim()) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "El nombre no puede quedar vacío."
+        );
+      }
+      cambios.nombre = data.nombre;
+    }
+
+    if (data.ubicacion !== undefined) {
+      if (!data.ubicacion.trim()) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "La ubicación no puede quedar vacía."
+        );
+      }
+      cambios.ubicacion = data.ubicacion;
+    }
 
     if (data.estado !== undefined) {
       if (!ESTADOS_INCUBADORA_VALIDOS.includes(data.estado)) {
