@@ -1,431 +1,379 @@
 import { useEffect, useState } from "react";
-import { incubadorasRepository } from "../../repositories/incubadorasRepository";
+import { useNavigate, useParams } from "react-router-dom";
+import incubadorasRepository from "../../repositories/incubadorasRepository";
+import dispositivosRepository from "../../repositories/dispositivosRepository";
+import { DEVICE_TYPES, INCUBATOR_STATUS, ROUTES } from "../../utils/constants";
 import "./IncubadoraForm.css";
 
-const ESTADOS = [
-  { value: "activa", label: "Activa" },
-  { value: "inactiva", label: "Inactiva" },
+// Valores exactos aceptados por gestionarIncubadora/crearDispositivo
+// (ver functions/index.js). No se usan otros estados/tipos en este
+// formulario aunque frontend/src/utils/constants.js defina más
+// (esos otros los escribe el Servicio de Integración IoT, no el
+// alta/edición manual).
+const ESTADOS_INCUBADORA = [
+  { value: INCUBATOR_STATUS.ACTIVE, label: "Activa" },
+  { value: INCUBATOR_STATUS.INACTIVE, label: "Inactiva" },
 ];
 
 const TIPOS_DISPOSITIVO = [
-  { value: "sensor_temperatura", label: "Sensor de temperatura" },
-  { value: "sensor_humedad", label: "Sensor de humedad" },
-  { value: "ventilador", label: "Ventilador" },
+  { value: DEVICE_TYPES.TEMPERATURE_SENSOR, label: "Sensor de temperatura" },
+  { value: DEVICE_TYPES.HUMIDITY_SENSOR, label: "Sensor de humedad" },
+  { value: DEVICE_TYPES.FAN, label: "Ventilador" },
 ];
 
-const INITIAL_FORM = {
-  nombre: "",
-  ubicacion: "",
-  estado: "activa",
-};
+const IncubadoraForm = () => {
+  const navigate = useNavigate();
+  const { id } = useParams();
 
-const INITIAL_DEVICE = {
-  tipo: "",
-};
+  const isEditing = Boolean(id);
 
-function validateForm(form) {
-  const errors = {};
-
-  if (!form.nombre.trim()) {
-    errors.nombre = "El nombre de la incubadora es obligatorio.";
-  }
-
-  if (!form.estado) {
-    errors.estado = "Selecciona el estado de la incubadora.";
-  }
-
-  return errors;
-}
-
-function validateDevice(device) {
-  if (!device.tipo) {
-    return { tipo: "Selecciona el tipo de dispositivo." };
-  }
-
-  return {};
-}
-
-export default function IncubadoraForm({
-  incubadora = null,
-  onSaved,
-  onCancel,
-}) {
-  const isEditing = Boolean(incubadora?.id);
-
-  const [form, setForm] = useState({
-    ...INITIAL_FORM,
-    nombre: incubadora?.nombre ?? "",
-    ubicacion: incubadora?.ubicacion ?? "",
-    estado: incubadora?.estado ?? "activa",
+  const [formData, setFormData] = useState({
+    nombre: "",
+    ubicacion: "",
+    estado: INCUBATOR_STATUS.ACTIVE,
   });
 
-  const [device, setDevice] = useState(INITIAL_DEVICE);
-  const [errors, setErrors] = useState({});
-  const [deviceErrors, setDeviceErrors] = useState({});
-  const [submitError, setSubmitError] = useState("");
-  const [deviceMessage, setDeviceMessage] = useState("");
-  const [savedIncubadoraId, setSavedIncubadoraId] = useState(
-    incubadora?.id ?? null
+  const [errores, setErrores] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [loadingIncubadora, setLoadingIncubadora] = useState(isEditing);
+  const [error, setError] = useState("");
+
+  const [dispositivos, setDispositivos] = useState([]);
+  const [tipoDispositivo, setTipoDispositivo] = useState(
+    TIPOS_DISPOSITIVO[0].value
   );
-  const [isSaving, setIsSaving] = useState(false);
-  const [isAddingDevice, setIsAddingDevice] = useState(false);
+  const [loadingDispositivo, setLoadingDispositivo] = useState(false);
+  const [errorDispositivo, setErrorDispositivo] = useState("");
+  const [mensajeDispositivo, setMensajeDispositivo] = useState("");
+
+  const cargarIncubadora = async () => {
+    try {
+      setLoadingIncubadora(true);
+      setError("");
+
+      const incubadora = await incubadorasRepository.obtenerIncubadora(id);
+
+      if (!incubadora) {
+        setError("La incubadora indicada no existe.");
+        return;
+      }
+
+      setFormData({
+        nombre: incubadora.nombre || "",
+        ubicacion: incubadora.ubicacion || "",
+        estado: incubadora.estado || INCUBATOR_STATUS.ACTIVE,
+      });
+
+      await cargarDispositivos();
+    } catch (err) {
+      setError(err?.message || "No fue posible cargar la incubadora.");
+    } finally {
+      setLoadingIncubadora(false);
+    }
+  };
+
+  const cargarDispositivos = async () => {
+    const lista = await dispositivosRepository.listarDispositivosPorIncubadora(
+      id
+    );
+    setDispositivos(Array.isArray(lista) ? lista : []);
+  };
 
   useEffect(() => {
-    setForm({
-      ...INITIAL_FORM,
-      nombre: incubadora?.nombre ?? "",
-      ubicacion: incubadora?.ubicacion ?? "",
-      estado: incubadora?.estado ?? "activa",
-    });
-    setSavedIncubadoraId(incubadora?.id ?? null);
-    setErrors({});
-    setSubmitError("");
-    setDevice(INITIAL_DEVICE);
-    setDeviceErrors({});
-    setDeviceMessage("");
-  }, [incubadora]);
+    if (isEditing) {
+      cargarIncubadora();
+    }
+  }, [id]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
 
-    setForm((current) => ({
-      ...current,
+    setFormData((previous) => ({
+      ...previous,
       [name]: value,
     }));
 
-    if (errors[name]) {
-      setErrors((current) => ({
-        ...current,
-        [name]: "",
-      }));
+    if (errores[name]) {
+      setErrores((previous) => {
+        const siguientes = { ...previous };
+        delete siguientes[name];
+        return siguientes;
+      });
     }
 
-    setSubmitError("");
+    if (error) {
+      setError("");
+    }
   };
 
-  const handleDeviceChange = (event) => {
-    const { name, value } = event.target;
+  const validar = () => {
+    const nuevosErrores = {};
 
-    setDevice((current) => ({
-      ...current,
-      [name]: value,
-    }));
-
-    if (deviceErrors[name]) {
-      setDeviceErrors((current) => ({
-        ...current,
-        [name]: "",
-      }));
+    if (!formData.nombre.trim()) {
+      nuevosErrores.nombre = "El nombre es obligatorio.";
     }
 
-    setDeviceMessage("");
-  };
+    if (!formData.ubicacion.trim()) {
+      nuevosErrores.ubicacion = "La ubicación es obligatoria.";
+    }
 
-  const handleBlur = (event) => {
-    const { name } = event.target;
-    const nextErrors = validateForm(form);
+    if (!ESTADOS_INCUBADORA.some((opcion) => opcion.value === formData.estado)) {
+      nuevosErrores.estado = "Debe seleccionar un estado válido.";
+    }
 
-    setErrors((current) => ({
-      ...current,
-      [name]: nextErrors[name] ?? "",
-    }));
-  };
+    setErrores(nuevosErrores);
 
-  const handleDeviceBlur = () => {
-    const nextErrors = validateDevice(device);
-
-    setDeviceErrors((current) => ({
-      ...current,
-      tipo: nextErrors.tipo ?? "",
-    }));
+    return Object.keys(nuevosErrores).length === 0;
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const validationErrors = validateForm(form);
-    setErrors(validationErrors);
-    setSubmitError("");
-
-    if (Object.keys(validationErrors).length > 0) {
+    if (!validar()) {
       return;
     }
 
-    setIsSaving(true);
-
     try {
-      const payload = {
-        nombre: form.nombre.trim(),
-        ubicacion: form.ubicacion.trim(),
-        estado: form.estado,
-      };
+      setLoading(true);
+      setError("");
 
-      /*
-       * gestionarIncubadora es la operación de negocio definida en el DDS.
-       * El repository encapsula la llamada a la Cloud Function.
-       */
-      const result = await incubadorasRepository.gestionarIncubadora({
-        accion: isEditing ? "actualizar" : "crear",
-        incubadora: isEditing
-          ? { id: incubadora.id, ...payload }
-          : payload,
-      });
+      if (isEditing) {
+        await incubadorasRepository.gestionarIncubadora({
+          accion: "editar",
+          id,
+          nombre: formData.nombre.trim(),
+          ubicacion: formData.ubicacion.trim(),
+          estado: formData.estado,
+        });
+      } else {
+        await incubadorasRepository.gestionarIncubadora({
+          accion: "crear",
+          nombre: formData.nombre.trim(),
+          ubicacion: formData.ubicacion.trim(),
+          estado: formData.estado,
+        });
+      }
 
-      const id =
-        incubadora?.id ??
-        result?.id ??
-        result?.incubadoraId ??
-        result?.data?.id ??
-        result?.data?.incubadoraId;
-
-      setSavedIncubadoraId(id ?? null);
-      onSaved?.(result);
-    } catch (error) {
-      setSubmitError(
-        error?.message ||
-          "No fue posible guardar la incubadora. Inténtalo nuevamente."
-      );
+      navigate(ROUTES.INCUBATORS);
+    } catch (err) {
+      setError(err?.message || "No fue posible guardar la incubadora.");
     } finally {
-      setIsSaving(false);
+      setLoading(false);
     }
   };
 
-  const handleAddDevice = async (event) => {
+  const handleAgregarDispositivo = async (event) => {
     event.preventDefault();
 
-    const validationErrors = validateDevice(device);
-    setDeviceErrors(validationErrors);
-    setDeviceMessage("");
-
-    if (Object.keys(validationErrors).length > 0) {
+    if (!tipoDispositivo) {
+      setErrorDispositivo("Debe seleccionar un tipo de dispositivo.");
       return;
     }
-
-    if (!savedIncubadoraId) {
-      setDeviceMessage(
-        "Guarda primero la incubadora para poder registrar un dispositivo."
-      );
-      return;
-    }
-
-    setIsAddingDevice(true);
 
     try {
-      await incubadorasRepository.gestionarIncubadora({
-        accion: "crear_dispositivo",
-        incubadoraId: savedIncubadoraId,
-        dispositivo: {
-          tipo: device.tipo,
-        },
+      setLoadingDispositivo(true);
+      setErrorDispositivo("");
+      setMensajeDispositivo("");
+
+      const resultado = await dispositivosRepository.crearDispositivo({
+        incubadoraId: id,
+        tipo: tipoDispositivo,
       });
 
-      setDevice(INITIAL_DEVICE);
-      setDeviceErrors({});
-      setDeviceMessage("Dispositivo registrado correctamente.");
-    } catch (error) {
-      setDeviceMessage(
-        error?.message ||
-          "No fue posible registrar el dispositivo. Inténtalo nuevamente."
+      setMensajeDispositivo(
+        `Dispositivo agregado. Identificador MQTT: ${resultado.identificadorMqtt}`
+      );
+
+      await cargarDispositivos();
+    } catch (err) {
+      setErrorDispositivo(
+        err?.message || "No fue posible dar de alta el dispositivo."
       );
     } finally {
-      setIsAddingDevice(false);
+      setLoadingDispositivo(false);
     }
   };
 
-  return (
-    <section className="incubadora-form" aria-labelledby="incubadora-form-title">
-      <div className="incubadora-form__header">
-        <div>
-          <p className="incubadora-form__eyebrow">Gestión de incubadoras</p>
-          <h1 id="incubadora-form-title" className="incubadora-form__title">
-            {isEditing ? "Editar incubadora" : "Nueva incubadora"}
-          </h1>
-          <p className="incubadora-form__description">
-            Registra los datos básicos y asocia los dispositivos de la
-            incubadora.
-          </p>
+  if (loadingIncubadora) {
+    return (
+      <section className="incubadora-form-page">
+        <div className="incubadora-form-card">
+          <p className="incubadora-form-loading">Cargando incubadora...</p>
         </div>
-      </div>
+      </section>
+    );
+  }
 
-      <form className="incubadora-form__body" onSubmit={handleSubmit} noValidate>
-        <fieldset className="incubadora-form__section">
-          <legend>Datos de la incubadora</legend>
+  return (
+    <section className="incubadora-form-page">
+      <div className="incubadora-form-card">
+        <div className="incubadora-form-header">
+          <button
+            type="button"
+            className="btn-back"
+            onClick={() => navigate(ROUTES.INCUBATORS)}
+          >
+            ← Volver
+          </button>
 
-          <div className="incubadora-form__grid">
-            <div className="incubadora-form__field">
-              <label htmlFor="incubadora-nombre">
-                Nombre <span aria-hidden="true">*</span>
-              </label>
-              <input
-                id="incubadora-nombre"
-                name="nombre"
-                type="text"
-                value={form.nombre}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Ej. Incubadora principal"
-                aria-invalid={Boolean(errors.nombre)}
-                aria-describedby={errors.nombre ? "incubadora-nombre-error" : undefined}
-              />
-              {errors.nombre && (
-                <p
-                  id="incubadora-nombre-error"
-                  className="incubadora-form__error"
-                  role="alert"
-                >
-                  {errors.nombre}
-                </p>
-              )}
-            </div>
-
-            <div className="incubadora-form__field">
-              <label htmlFor="incubadora-ubicacion">Ubicación</label>
-              <input
-                id="incubadora-ubicacion"
-                name="ubicacion"
-                type="text"
-                value={form.ubicacion}
-                onChange={handleChange}
-                placeholder="Ej. Galpón 1"
-              />
-            </div>
-
-            <div className="incubadora-form__field">
-              <label htmlFor="incubadora-estado">
-                Estado <span aria-hidden="true">*</span>
-              </label>
-              <select
-                id="incubadora-estado"
-                name="estado"
-                value={form.estado}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                aria-invalid={Boolean(errors.estado)}
-                aria-describedby={errors.estado ? "incubadora-estado-error" : undefined}
-              >
-                <option value="">Selecciona un estado</option>
-                {ESTADOS.map((estado) => (
-                  <option key={estado.value} value={estado.value}>
-                    {estado.label}
-                  </option>
-                ))}
-              </select>
-              {errors.estado && (
-                <p
-                  id="incubadora-estado-error"
-                  className="incubadora-form__error"
-                  role="alert"
-                >
-                  {errors.estado}
-                </p>
-              )}
-            </div>
-          </div>
-        </fieldset>
-
-        <fieldset className="incubadora-form__section">
-          <legend>Dar de alta un dispositivo</legend>
-
-          <p className="incubadora-form__section-description">
-            Asocia un sensor o ventilador a esta incubadora.
-          </p>
-
-          <div className="incubadora-form__device-row">
-            <div className="incubadora-form__field">
-              <label htmlFor="dispositivo-tipo">
-                Tipo de dispositivo <span aria-hidden="true">*</span>
-              </label>
-              <select
-                id="dispositivo-tipo"
-                name="tipo"
-                value={device.tipo}
-                onChange={handleDeviceChange}
-                onBlur={handleDeviceBlur}
-                disabled={!savedIncubadoraId || isAddingDevice}
-                aria-invalid={Boolean(deviceErrors.tipo)}
-                aria-describedby={
-                  deviceErrors.tipo ? "dispositivo-tipo-error" : undefined
-                }
-              >
-                <option value="">Selecciona un tipo</option>
-                {TIPOS_DISPOSITIVO.map((tipo) => (
-                  <option key={tipo.value} value={tipo.value}>
-                    {tipo.label}
-                  </option>
-                ))}
-              </select>
-              {deviceErrors.tipo && (
-                <p
-                  id="dispositivo-tipo-error"
-                  className="incubadora-form__error"
-                  role="alert"
-                >
-                  {deviceErrors.tipo}
-                </p>
-              )}
-            </div>
-
-            <button
-              className="incubadora-form__button incubadora-form__button--secondary"
-              type="button"
-              onClick={handleAddDevice}
-              disabled={!savedIncubadoraId || isAddingDevice}
-            >
-              {isAddingDevice ? "Registrando..." : "Agregar dispositivo"}
-            </button>
-          </div>
-
-          {!savedIncubadoraId && (
-            <p className="incubadora-form__hint">
-              Guarda la incubadora antes de registrar un dispositivo.
+          <div>
+            <h1>{isEditing ? "Editar incubadora" : "Nueva incubadora"}</h1>
+            <p>
+              {isEditing
+                ? "Modifique la información de la incubadora."
+                : "Registre una nueva incubadora en el sistema."}
             </p>
-          )}
+          </div>
+        </div>
 
-          {deviceMessage && (
-            <p
-              className={`incubadora-form__message ${
-                deviceMessage.includes("correctamente")
-                  ? "incubadora-form__message--success"
-                  : "incubadora-form__message--error"
-              }`}
-              role="status"
-            >
-              {deviceMessage}
-            </p>
-          )}
-        </fieldset>
-
-        {submitError && (
-          <p className="incubadora-form__submit-error" role="alert">
-            {submitError}
-          </p>
+        {error && (
+          <div className="incubadora-form-error" role="alert">
+            {error}
+          </div>
         )}
 
-        <div className="incubadora-form__actions">
-          {onCancel && (
+        <form className="incubadora-form" onSubmit={handleSubmit} noValidate>
+          <div className="form-group">
+            <label htmlFor="nombre">Nombre</label>
+
+            <input
+              id="nombre"
+              name="nombre"
+              type="text"
+              value={formData.nombre}
+              onChange={handleChange}
+              placeholder="Ingrese el nombre de la incubadora"
+              disabled={loading}
+            />
+
+            {errores.nombre && (
+              <span className="form-error">{errores.nombre}</span>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="ubicacion">Ubicación</label>
+
+            <input
+              id="ubicacion"
+              name="ubicacion"
+              type="text"
+              value={formData.ubicacion}
+              onChange={handleChange}
+              placeholder="Ej: Galpón 2, sector A"
+              disabled={loading}
+            />
+
+            {errores.ubicacion && (
+              <span className="form-error">{errores.ubicacion}</span>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="estado">Estado</label>
+
+            <select
+              id="estado"
+              name="estado"
+              value={formData.estado}
+              onChange={handleChange}
+              disabled={loading}
+            >
+              {ESTADOS_INCUBADORA.map((opcion) => (
+                <option key={opcion.value} value={opcion.value}>
+                  {opcion.label}
+                </option>
+              ))}
+            </select>
+
+            {errores.estado && (
+              <span className="form-error">{errores.estado}</span>
+            )}
+          </div>
+
+          <div className="incubadora-form-actions">
             <button
-              className="incubadora-form__button incubadora-form__button--ghost"
               type="button"
-              onClick={onCancel}
-              disabled={isSaving}
+              className="btn-cancel"
+              onClick={() => navigate(ROUTES.INCUBATORS)}
+              disabled={loading}
             >
               Cancelar
             </button>
-          )}
 
-          <button
-            className="incubadora-form__button incubadora-form__button--primary"
-            type="submit"
-            disabled={isSaving}
-          >
-            {isSaving
-              ? "Guardando..."
-              : isEditing
+            <button type="submit" className="btn-save" disabled={loading}>
+              {loading
+                ? "Guardando..."
+                : isEditing
                 ? "Guardar cambios"
                 : "Crear incubadora"}
-          </button>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {isEditing && (
+        <div className="incubadora-form-card">
+          <h2>Dispositivos</h2>
+          <p>Dé de alta un dispositivo asociado a esta incubadora.</p>
+
+          {errorDispositivo && (
+            <div className="incubadora-form-error" role="alert">
+              {errorDispositivo}
+            </div>
+          )}
+
+          {mensajeDispositivo && (
+            <div className="incubadora-form-success" role="status">
+              {mensajeDispositivo}
+            </div>
+          )}
+
+          <form
+            className="dispositivo-form"
+            onSubmit={handleAgregarDispositivo}
+          >
+            <div className="form-group">
+              <label htmlFor="tipoDispositivo">Tipo de dispositivo</label>
+
+              <select
+                id="tipoDispositivo"
+                name="tipoDispositivo"
+                value={tipoDispositivo}
+                onChange={(event) => setTipoDispositivo(event.target.value)}
+                disabled={loadingDispositivo}
+              >
+                {TIPOS_DISPOSITIVO.map((opcion) => (
+                  <option key={opcion.value} value={opcion.value}>
+                    {opcion.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              className="btn-save"
+              disabled={loadingDispositivo}
+            >
+              {loadingDispositivo ? "Agregando..." : "+ Agregar dispositivo"}
+            </button>
+          </form>
+
+          {dispositivos.length > 0 && (
+            <ul className="dispositivos-lista">
+              {dispositivos.map((dispositivo) => (
+                <li key={dispositivo.id}>
+                  <strong>{dispositivo.tipo}</strong> —{" "}
+                  {dispositivo.identificadorMqtt}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      </form>
+      )}
     </section>
   );
-}
+};
+
+export default IncubadoraForm;

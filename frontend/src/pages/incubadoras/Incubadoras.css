@@ -1,0 +1,128 @@
+
+.incubadoras-page {
+  width: 100%;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+.incubadoras-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.incubadoras-header h1 {
+  margin: 0 0 0.4rem;
+  color: var(--text-color);
+  font-size: 1.8rem;
+}
+
+.incubadoras-header p {
+  margin: 0;
+  color: var(--text-secondary-color);
+}
+
+.btn-new-incubadora {
+  padding: 0.8rem 1.2rem;
+  color: var(--button-text-color);
+  background-color: var(--primary-color);
+  border: none;
+  border-radius: var(--border-radius);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-new-incubadora:hover {
+  background-color: var(--primary-color-hover);
+}
+
+.incubadoras-card {
+  width: 100%;
+  overflow-x: auto;
+  padding: 1.25rem;
+  box-sizing: border-box;
+
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+
+  box-shadow: var(--shadow);
+}
+
+.incubadoras-error {
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+
+  color: var(--error-color);
+  background-color: var(--error-background-color);
+
+  border: 1px solid var(--error-color);
+  border-radius: var(--border-radius);
+}
+
+.incubadoras-loading,
+.incubadoras-empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary-color);
+}
+
+.estado-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 75px;
+  padding: 0.35rem 0.7rem;
+
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.estado-activo {
+  color: var(--success-color);
+  background-color: var(--success-background-color);
+}
+
+.estado-inactivo {
+  color: var(--error-color);
+  background-color: var(--error-background-color);
+}
+
+.btn-ver-detalle {
+  padding: 0.45rem 0.75rem;
+
+  color: var(--primary-color);
+  background-color: transparent;
+
+  border: 1px solid var(--primary-color);
+  border-radius: var(--border-radius);
+
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-ver-detalle:hover {
+  color: var(--button-text-color);
+  background-color: var(--primary-color);
+}
+
+@media (max-width: 768px) {
+  .incubadoras-page {
+    padding: 1rem;
+  }
+
+  .incubadoras-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .btn-new-incubadora {
+    width: 100%;
+  }
+}

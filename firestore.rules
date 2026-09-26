@@ -4,6 +4,19 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ---------------------------------------------------------
+    // Helper: isAdmin()
+    //
+    // Reutilizado por todas las colecciones cuya escritura está
+    // restringida a administradores (custom claim "role"). Se
+    // define una sola vez acá para que Sprint 3 (mediciones,
+    // umbrales, alertas, ventiladores, etc.) también la reutilice.
+    // ---------------------------------------------------------
+    function isAdmin() {
+      return request.auth != null &&
+        request.auth.token.role == "administrador";
+    }
+
+    // ---------------------------------------------------------
     // Colección: usuarios/{uid}
     //
     // Lectura: el propio usuario autenticado, o cualquier
@@ -21,6 +34,35 @@ service cloud.firestore {
 
       allow write: if request.auth != null &&
         request.auth.token.role == "administrador";
+    }
+
+    // ---------------------------------------------------------
+    // Colección: incubadoras/{id}
+    //
+    // Lectura: cualquier usuario autenticado (los tres roles
+    // pueden consultar el estado de las incubadoras).
+    //
+    // Escritura: exclusiva de administradores. La creación,
+    // edición y desactivación se hace siempre a través de la
+    // Cloud Function "gestionarIncubadora", nunca por escritura
+    // directa del cliente.
+    // ---------------------------------------------------------
+    match /incubadoras/{id} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // ---------------------------------------------------------
+    // Colección: dispositivos/{id}
+    //
+    // Mismo criterio que incubadoras: lectura para cualquier
+    // usuario autenticado, escritura exclusiva de administradores
+    // y siempre a través de "gestionarIncubadora" (acción
+    // "crear_dispositivo").
+    // ---------------------------------------------------------
+    match /dispositivos/{id} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     // ---------------------------------------------------------
