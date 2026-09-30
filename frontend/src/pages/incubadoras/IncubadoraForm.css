@@ -17,11 +17,11 @@
   padding: 2rem;
   box-sizing: border-box;
 
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
 }
 
 .incubadora-form-header {
@@ -33,63 +33,63 @@
 
 .incubadora-form-header h1 {
   margin: 0 0 0.4rem;
-  color: var(--text-color);
+  color: var(--color-text-primary);
   font-size: 1.8rem;
 }
 
 .incubadora-form-header p {
   margin: 0;
-  color: var(--text-secondary-color);
+  color: var(--color-text-secondary);
 }
 
 .incubadora-form-card h2 {
   margin: 0 0 0.4rem;
-  color: var(--text-color);
+  color: var(--color-text-primary);
   font-size: 1.3rem;
 }
 
 .incubadora-form-card > p {
   margin: 0 0 1.25rem;
-  color: var(--text-secondary-color);
+  color: var(--color-text-secondary);
 }
 
 .btn-back {
   padding: 0.5rem 0.75rem;
 
-  color: var(--text-color);
+  color: var(--color-text-primary);
   background-color: transparent;
 
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 
   cursor: pointer;
 }
 
 .btn-back:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .incubadora-form-error {
   margin-bottom: 1.25rem;
   padding: 0.8rem 1rem;
 
-  color: var(--error-color);
-  background-color: var(--error-background-color);
+  color: var(--color-danger);
+  background-color: var(--color-danger-light);
 
-  border: 1px solid var(--error-color);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
 }
 
 .incubadora-form-success {
   margin-bottom: 1.25rem;
   padding: 0.8rem 1rem;
 
-  color: var(--success-color);
-  background-color: var(--success-background-color);
+  color: var(--color-success);
+  background-color: var(--color-success-light);
 
-  border: 1px solid var(--success-color);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-md);
 }
 
 .incubadora-form,
@@ -106,7 +106,7 @@
 }
 
 .form-group label {
-  color: var(--text-color);
+  color: var(--color-text-primary);
   font-size: 0.95rem;
   font-weight: 600;
 }
@@ -118,11 +118,11 @@
 
   padding: 0.8rem 1rem;
 
-  color: var(--text-color);
-  background-color: var(--input-background-color);
+  color: var(--color-text-primary);
+  background-color: var(--input-background);
 
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 
   font-size: 1rem;
   outline: none;
@@ -134,8 +134,8 @@
 
 .form-group input:focus,
 .form-group select:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--primary-color-alpha);
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
 }
 
 .form-group input:disabled,
@@ -145,7 +145,7 @@
 }
 
 .form-error {
-  color: var(--error-color);
+  color: var(--color-danger);
   font-size: 0.85rem;
 }
 
@@ -161,7 +161,7 @@
 .btn-save {
   padding: 0.8rem 1.2rem;
 
-  border-radius: var(--border-radius);
+  border-radius: var(--radius-md);
 
   font-size: 0.95rem;
   font-weight: 600;
@@ -170,23 +170,23 @@
 }
 
 .btn-cancel {
-  color: var(--text-color);
+  color: var(--color-text-primary);
   background-color: transparent;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--color-border);
 }
 
 .btn-cancel:hover:not(:disabled) {
-  border-color: var(--primary-color);
+  border-color: var(--color-primary);
 }
 
 .btn-save {
-  color: var(--button-text-color);
-  background-color: var(--primary-color);
-  border: 1px solid var(--primary-color);
+  color: var(--color-text-light);
+  background-color: var(--color-primary);
+  border: 1px solid var(--color-primary);
 }
 
 .btn-save:hover:not(:disabled) {
-  background-color: var(--primary-color-hover);
+  background-color: var(--color-primary-hover);
 }
 
 .btn-cancel:disabled,
@@ -198,7 +198,7 @@
 .incubadora-form-loading {
   padding: 2rem;
   text-align: center;
-  color: var(--text-secondary-color);
+  color: var(--color-text-secondary);
 }
 
 .dispositivos-lista {
@@ -215,11 +215,11 @@
 .dispositivos-lista li {
   padding: 0.6rem 0.9rem;
 
-  color: var(--text-color);
-  background-color: var(--input-background-color);
+  color: var(--color-text-primary);
+  background-color: var(--input-background);
 
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 
   font-size: 0.9rem;
 }

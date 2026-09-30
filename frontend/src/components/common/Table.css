@@ -8,12 +8,12 @@
 .mtpa-table td {
   padding: 0.85rem 1rem;
   text-align: left;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
 }
 
 .mtpa-table th {
-  color: var(--text-secondary-color);
+  color: var(--color-text-secondary);
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -21,7 +21,7 @@
 }
 
 .mtpa-table td {
-  color: var(--text-color);
+  color: var(--color-text-primary);
   font-size: 0.95rem;
 }
 
@@ -30,5 +30,5 @@
 }
 
 .mtpa-table tbody tr:hover {
-  background-color: var(--surface-hover-color, rgba(0, 0, 0, 0.02));
+  background-color: var(--color-surface-hover);
 }

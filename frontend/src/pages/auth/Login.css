@@ -5,7 +5,7 @@
   justify-content: center;
   padding: 2rem;
 
-  background-color: var(--background-color);
+  background-color: var(--color-background);
 }
 
 .login-card {
@@ -13,11 +13,11 @@
   max-width: 420px;
   padding: 2.5rem;
 
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
 }
 
 .login-header {
@@ -28,7 +28,7 @@
 .login-header h1 {
   margin: 0 0 0.5rem;
 
-  color: var(--text-color);
+  color: var(--color-text-primary);
   font-size: 2rem;
   font-weight: 700;
 }
@@ -36,7 +36,7 @@
 .login-header p {
   margin: 0;
 
-  color: var(--text-secondary-color);
+  color: var(--color-text-secondary);
   font-size: 0.95rem;
 }
 
@@ -53,7 +53,7 @@
 }
 
 .form-group label {
-  color: var(--text-color);
+  color: var(--color-text-primary);
   font-size: 0.95rem;
   font-weight: 600;
 }
@@ -64,11 +64,11 @@
 
   padding: 0.8rem 1rem;
 
-  color: var(--text-color);
-  background-color: var(--input-background-color);
+  color: var(--color-text-primary);
+  background-color: var(--input-background);
 
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 
   font-size: 1rem;
 
@@ -79,12 +79,12 @@
 }
 
 .form-group input::placeholder {
-  color: var(--text-secondary-color);
+  color: var(--color-text-secondary);
 }
 
 .form-group input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--primary-color-alpha);
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
 }
 
 .form-group input:disabled {
@@ -95,11 +95,11 @@
 .login-error {
   padding: 0.8rem 1rem;
 
-  color: var(--error-color);
-  background-color: var(--error-background-color);
+  color: var(--color-danger);
+  background-color: var(--color-danger-light);
 
-  border: 1px solid var(--error-color);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
 
   font-size: 0.9rem;
 }
@@ -108,11 +108,11 @@
   width: 100%;
   padding: 0.85rem 1rem;
 
-  color: var(--button-text-color);
-  background-color: var(--primary-color);
+  color: var(--color-text-light);
+  background-color: var(--color-primary);
 
   border: none;
-  border-radius: var(--border-radius);
+  border-radius: var(--radius-md);
 
   font-size: 1rem;
   font-weight: 600;
@@ -125,7 +125,7 @@
 }
 
 .login-button:hover:not(:disabled) {
-  background-color: var(--primary-color-hover);
+  background-color: var(--color-primary-hover);
 }
 
 .login-button:active:not(:disabled) {

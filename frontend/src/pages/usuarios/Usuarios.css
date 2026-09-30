@@ -15,28 +15,28 @@
 
 .usuarios-header h1 {
   margin: 0 0 0.4rem;
-  color: var(--text-color);
+  color: var(--color-text-primary);
   font-size: 1.8rem;
 }
 
 .usuarios-header p {
   margin: 0;
-  color: var(--text-secondary-color);
+  color: var(--color-text-secondary);
 }
 
 .btn-new-user {
   padding: 0.8rem 1.2rem;
-  color: var(--button-text-color);
-  background-color: var(--primary-color);
+  color: var(--color-text-light);
+  background-color: var(--color-primary);
   border: none;
-  border-radius: var(--border-radius);
+  border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
 
 .btn-new-user:hover {
-  background-color: var(--primary-color-hover);
+  background-color: var(--color-primary-hover);
 }
 
 .usuarios-card {
@@ -45,29 +45,29 @@
   padding: 1.25rem;
   box-sizing: border-box;
 
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
 }
 
 .usuarios-error {
   margin-bottom: 1rem;
   padding: 0.8rem 1rem;
 
-  color: var(--error-color);
-  background-color: var(--error-background-color);
+  color: var(--color-danger);
+  background-color: var(--color-danger-light);
 
-  border: 1px solid var(--error-color);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
 }
 
 .usuarios-loading,
 .usuarios-empty {
   padding: 2rem;
   text-align: center;
-  color: var(--text-secondary-color);
+  color: var(--color-text-secondary);
 }
 
 .estado-badge {
@@ -84,13 +84,13 @@
 }
 
 .estado-activo {
-  color: var(--success-color);
-  background-color: var(--success-background-color);
+  color: var(--color-success);
+  background-color: var(--color-success-light);
 }
 
 .estado-inactivo {
-  color: var(--error-color);
-  background-color: var(--error-background-color);
+  color: var(--color-danger);
+  background-color: var(--color-danger-light);
 }
 
 .usuario-actions {
@@ -102,32 +102,32 @@
 .btn-edit,
 .btn-disable {
   padding: 0.45rem 0.75rem;
-  border-radius: var(--border-radius);
+  border-radius: var(--radius-md);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
 
 .btn-edit {
-  color: var(--primary-color);
+  color: var(--color-primary);
   background-color: transparent;
-  border: 1px solid var(--primary-color);
+  border: 1px solid var(--color-primary);
 }
 
 .btn-edit:hover {
-  color: var(--button-text-color);
-  background-color: var(--primary-color);
+  color: var(--color-text-light);
+  background-color: var(--color-primary);
 }
 
 .btn-disable {
-  color: var(--error-color);
+  color: var(--color-danger);
   background-color: transparent;
-  border: 1px solid var(--error-color);
+  border: 1px solid var(--color-danger);
 }
 
 .btn-disable:hover {
-  color: var(--button-text-color);
-  background-color: var(--error-color);
+  color: var(--color-text-light);
+  background-color: var(--color-danger);
 }
 
 @media (max-width: 768px) {

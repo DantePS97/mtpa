@@ -20,31 +20,31 @@
 .btn-edit {
   padding: 0.5rem 0.9rem;
 
-  border-radius: var(--border-radius);
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
 }
 
 .btn-back {
-  color: var(--text-color);
+  color: var(--color-text-primary);
   background-color: transparent;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--color-border);
 }
 
 .btn-back:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .btn-edit {
-  color: var(--button-text-color);
-  background-color: var(--primary-color);
-  border: 1px solid var(--primary-color);
+  color: var(--color-text-light);
+  background-color: var(--color-primary);
+  border: 1px solid var(--color-primary);
 }
 
 .btn-edit:hover {
-  background-color: var(--primary-color-hover);
+  background-color: var(--color-primary-hover);
 }
 
 .incubadora-detalle-card {
@@ -52,22 +52,22 @@
   padding: 1.5rem;
   box-sizing: border-box;
 
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
 }
 
 .incubadora-detalle-card h1 {
   margin: 0 0 1.25rem;
-  color: var(--text-color);
+  color: var(--color-text-primary);
   font-size: 1.6rem;
 }
 
 .incubadora-detalle-card h2 {
   margin: 0 0 1rem;
-  color: var(--text-color);
+  color: var(--color-text-primary);
   font-size: 1.2rem;
 }
 
@@ -80,7 +80,7 @@
 
 .incubadora-detalle-datos dt {
   margin-bottom: 0.3rem;
-  color: var(--text-secondary-color);
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -89,25 +89,25 @@
 
 .incubadora-detalle-datos dd {
   margin: 0;
-  color: var(--text-color);
+  color: var(--color-text-primary);
   font-size: 1rem;
 }
 
 .incubadora-detalle-error {
   padding: 0.8rem 1rem;
 
-  color: var(--error-color);
-  background-color: var(--error-background-color);
+  color: var(--color-danger);
+  background-color: var(--color-danger-light);
 
-  border: 1px solid var(--error-color);
-  border-radius: var(--border-radius);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
 }
 
 .incubadora-detalle-loading,
 .incubadora-detalle-empty {
   padding: 1.5rem;
   text-align: center;
-  color: var(--text-secondary-color);
+  color: var(--color-text-secondary);
 }
 
 .estado-badge {
@@ -124,13 +124,13 @@
 }
 
 .estado-activo {
-  color: var(--success-color);
-  background-color: var(--success-background-color);
+  color: var(--color-success);
+  background-color: var(--color-success-light);
 }
 
 .estado-inactivo {
-  color: var(--error-color);
-  background-color: var(--error-background-color);
+  color: var(--color-danger);
+  background-color: var(--color-danger-light);
 }
 
 .estado-conexion-badge {
@@ -147,23 +147,23 @@
 }
 
 .estado-conexion-conectado {
-  color: var(--success-color);
-  background-color: var(--success-background-color);
+  color: var(--color-success);
+  background-color: var(--color-success-light);
 }
 
 .estado-conexion-desconectado {
-  color: var(--error-color);
-  background-color: var(--error-background-color);
+  color: var(--color-danger);
+  background-color: var(--color-danger-light);
 }
 
 .estado-conexion-advertencia {
-  color: var(--warning-color, #f4a51c);
-  background-color: var(--warning-background-color, rgba(244, 165, 28, 0.15));
+  color: var(--color-warning);
+  background-color: var(--color-warning-light);
 }
 
 .estado-conexion-desconocido {
-  color: var(--text-secondary-color);
-  background-color: var(--border-color);
+  color: var(--color-text-secondary);
+  background-color: var(--color-border);
 }
 
 @media (max-width: 768px) {
