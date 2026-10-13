@@ -1,0 +1,219 @@
+/* =========================================================
+   M.T.P.A. - BARRA LATERAL DE NAVEGACIÓN
+   Columna fija de escritorio; por debajo de 768px (corte
+   "tablet pequeña" de responsive.css) pasa a una barra superior:
+   la marca en la primera fila y los enlaces, con "Cerrar sesión"
+   al final, en una segunda fila con desplazamiento horizontal
+   propio.
+
+   Contraste del texto blanco (WCAG, mínimo 4,5:1):
+   sidebar 9,9 | hover 6,6 | activo (primary-hover) 5,8.
+   ========================================================= */
+
+.app-sidebar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sidebar);
+
+  display: flex;
+  flex-direction: column;
+
+  gap: var(--spacing-4);
+
+  align-self: start;
+
+  width: var(--sidebar-width);
+
+  /* 100dvh evita que la barra dinámica del navegador móvil tape
+     el pie del menú; 100vh queda de respaldo. */
+  height: 100vh;
+  height: 100dvh;
+
+  padding: var(--spacing-5) var(--spacing-3);
+
+  overflow-y: auto;
+
+  color: var(--color-text-light);
+  background-color: var(--color-sidebar);
+}
+
+.app-sidebar__brand {
+  display: flex;
+  flex-direction: column;
+
+  gap: var(--spacing-1);
+
+  padding: 0 var(--spacing-3);
+}
+
+.app-sidebar__brand strong {
+  color: var(--color-text-light);
+
+  font-size: var(--font-size-lg);
+}
+
+.app-sidebar__brand span {
+  color: var(--color-primary-light);
+
+  font-size: var(--font-size-xs);
+}
+
+.app-sidebar__nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+
+  gap: var(--spacing-1);
+}
+
+/* a:hover de global.css (0,1,1) le gana a una clase sola: el color
+   se repite en :hover para que el texto no pase al azul de enlace. */
+.app-sidebar__link,
+.app-sidebar__link:hover {
+  color: var(--color-text-light);
+}
+
+.app-sidebar__link {
+  display: flex;
+  align-items: center;
+
+  min-height: var(--control-height-md);
+
+  padding: var(--spacing-2) var(--spacing-3);
+
+  border-radius: var(--radius-md);
+
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+
+  transition:
+    background-color var(--transition-fast);
+}
+
+.app-sidebar__link:hover {
+  background-color: var(--color-sidebar-hover);
+}
+
+/* Además del fondo, el ítem activo lleva una marca blanca: el color
+   solo no alcanza para distinguirlo del fondo del menú. */
+.app-sidebar__link--active,
+.app-sidebar__link--active:hover {
+  background-color: var(--color-primary-hover);
+
+  box-shadow: inset 3px 0 0 var(--color-text-light);
+
+  font-weight: var(--font-weight-semibold);
+}
+
+/* El outline global es verde sobre fondo verde oscuro: no se ve.
+   Se dibuja hacia adentro para que el overflow del menú no lo corte.
+   El radio se repite porque a:focus-visible de global.css lo cambia. */
+.app-sidebar__link:focus-visible,
+.app-sidebar__logout:focus-visible {
+  border-radius: var(--radius-md);
+
+  outline: 2px solid var(--color-text-light);
+  outline-offset: -2px;
+}
+
+.app-sidebar__logout {
+  margin-top: auto;
+
+  min-height: var(--control-height-md);
+
+  padding: var(--spacing-2) var(--spacing-3);
+
+  color: var(--color-text-light);
+
+  border: 1px solid var(--color-primary-light);
+  border-radius: var(--radius-md);
+
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+
+  transition:
+    background-color var(--transition-fast);
+}
+
+.app-sidebar__logout:hover,
+.app-sidebar__logout:disabled {
+  background-color: var(--color-sidebar-hover);
+}
+
+.app-sidebar__error {
+  padding: var(--spacing-2) var(--spacing-3);
+
+  color: var(--color-danger-dark);
+  background-color: var(--color-surface);
+
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+
+  font-size: var(--font-size-xs);
+}
+
+@media (max-width: 768px) {
+  .app-sidebar {
+    position: static;
+
+    gap: var(--spacing-2);
+
+    width: auto;
+    height: auto;
+
+    padding: var(--spacing-3) var(--spacing-4);
+
+    overflow-y: visible;
+  }
+
+  .app-sidebar__brand {
+    padding: 0;
+  }
+
+  .app-sidebar__brand span {
+    display: none;
+  }
+
+  .app-sidebar__nav {
+    flex: none;
+    flex-direction: row;
+
+    min-width: 0;
+
+    overflow-x: auto;
+
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-sidebar__link {
+    flex: none;
+
+    white-space: nowrap;
+  }
+
+  /* Queda siempre visible al borde derecho de la barra mientras los
+     enlaces se desplazan por debajo. */
+  .app-sidebar__logout {
+    position: sticky;
+    right: 0;
+
+    flex: none;
+
+    margin-top: 0;
+    margin-left: auto;
+
+    background-color: var(--color-sidebar);
+
+    white-space: nowrap;
+  }
+
+  .app-sidebar__logout:hover,
+  .app-sidebar__logout:disabled {
+    background-color: var(--color-sidebar-hover);
+  }
+
+  .app-sidebar__link--active,
+  .app-sidebar__link--active:hover {
+    box-shadow: inset 0 -3px 0 var(--color-text-light);
+  }
+}

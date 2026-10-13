@@ -1,0 +1,85 @@
+/* =========================================================
+   M.T.P.A. - LAYOUT DE PÁGINAS PROTEGIDAS
+   Dos columnas: menú (Sidebar) y contenido. Por debajo de 768px
+   (mismo corte "tablet pequeña" de responsive.css) pasa a una
+   sola columna con el menú arriba.
+   ========================================================= */
+
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* minmax(0, 1fr) + min-width: 0 permiten que el contenido se encoja
+   en lugar de empujar el ancho de la página (tablas, grillas). */
+.dashboard-layout__content {
+  min-width: 0;
+}
+
+/* El <main> solo recibe foco por programa (tabIndex -1) desde el
+   enlace "Saltar al contenido": no necesita anillo de foco. */
+.dashboard-layout__content:focus {
+  outline: none;
+}
+
+/* Oculto fuera de pantalla hasta que recibe foco con el teclado. */
+.dashboard-layout__skip-link,
+.dashboard-layout__skip-link:hover {
+  color: var(--color-primary-darker);
+}
+
+.dashboard-layout__skip-link {
+  position: fixed;
+  top: var(--spacing-2);
+  left: var(--spacing-2);
+  z-index: var(--z-overlay);
+
+  padding: var(--spacing-2) var(--spacing-4);
+
+  background-color: var(--color-surface);
+
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+
+  box-shadow: var(--shadow-md);
+
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+
+  transform: translateY(calc(-100% - var(--spacing-2)));
+}
+
+.dashboard-layout__skip-link:focus {
+  transform: none;
+}
+
+/* El banner no tiene padding propio de página: se separa del borde del
+   contenido y del menú (conserva su margin-bottom). */
+.dashboard-layout__content > .notification-banner {
+  width: auto;
+
+  margin-top: var(--spacing-4);
+  margin-right: var(--spacing-4);
+  margin-left: var(--spacing-4);
+}
+
+@media (max-width: 768px) {
+  .dashboard-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-layout__content > .notification-banner {
+    margin-top: var(--spacing-3);
+    margin-right: var(--spacing-3);
+    margin-left: var(--spacing-3);
+  }
+}
+
+@media print {
+  .dashboard-layout {
+    display: block;
+  }
+}
