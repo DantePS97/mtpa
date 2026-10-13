@@ -668,6 +668,12 @@ export const NAVIGATION_ITEMS = [
   },
 
   {
+    label: "Límites de alerta",
+    path: ROUTES.THRESHOLDS,
+    permission: PERMISSIONS.MANAGE_THRESHOLDS,
+  },
+
+  {
     label: "Ventiladores",
     path: ROUTES.FANS,
     permission: PERMISSIONS.VIEW_FANS,
@@ -690,6 +696,9 @@ export const NAVIGATION_ITEMS = [
     label: "Configuración",
     path: ROUTES.SETTINGS,
     permission: PERMISSIONS.MANAGE_SETTINGS,
+    // "end": /configuracion/limites ("Límites de alerta") cuelga de esta
+    // ruta; sin "end" ambos ítems quedarían activos a la vez.
+    end: true,
     pendiente: true,
   },
 ];
