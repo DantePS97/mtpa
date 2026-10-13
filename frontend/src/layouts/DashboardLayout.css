@@ -1,0 +1,48 @@
+/* =========================================================
+   M.T.P.A. - LAYOUT DE PÁGINAS PROTEGIDAS
+   Dos columnas: menú (Sidebar) y contenido. Por debajo de 768px
+   (mismo corte "tablet pequeña" de responsive.css) pasa a una
+   sola columna con el menú arriba.
+   ========================================================= */
+
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* minmax(0, 1fr) + min-width: 0 permiten que el contenido se encoja
+   en lugar de empujar el ancho de la página (tablas, grillas). */
+.dashboard-layout__content {
+  min-width: 0;
+}
+
+/* El banner no tiene padding propio de página: se separa del borde del
+   contenido y del menú (conserva su margin-bottom). */
+.dashboard-layout__content > .notification-banner {
+  width: auto;
+
+  margin-top: var(--spacing-4);
+  margin-right: var(--spacing-4);
+  margin-left: var(--spacing-4);
+}
+
+@media (max-width: 768px) {
+  .dashboard-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-layout__content > .notification-banner {
+    margin-top: var(--spacing-3);
+    margin-right: var(--spacing-3);
+    margin-left: var(--spacing-3);
+  }
+}
+
+@media print {
+  .dashboard-layout {
+    display: block;
+  }
+}

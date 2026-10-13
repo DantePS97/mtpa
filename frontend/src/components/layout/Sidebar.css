@@ -1,0 +1,173 @@
+/* =========================================================
+   M.T.P.A. - BARRA LATERAL DE NAVEGACIÓN
+   Columna fija de escritorio; por debajo de 768px (corte
+   "tablet pequeña" de responsive.css) pasa a una barra superior:
+   marca y "Cerrar sesión" en la primera fila y los enlaces en una
+   segunda fila con desplazamiento horizontal propio.
+   ========================================================= */
+
+.app-sidebar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sidebar);
+
+  display: flex;
+  flex-direction: column;
+
+  gap: var(--spacing-4);
+
+  align-self: start;
+
+  width: var(--sidebar-width);
+  height: 100vh;
+
+  padding: var(--spacing-5) var(--spacing-3);
+
+  overflow-y: auto;
+
+  color: var(--color-text-light);
+  background-color: var(--color-sidebar);
+}
+
+.app-sidebar__brand {
+  display: flex;
+  flex-direction: column;
+
+  gap: var(--spacing-1);
+
+  padding: 0 var(--spacing-3);
+}
+
+.app-sidebar__brand strong {
+  color: var(--color-text-light);
+
+  font-size: var(--font-size-lg);
+}
+
+.app-sidebar__brand span {
+  color: var(--color-primary-light);
+
+  font-size: var(--font-size-xs);
+}
+
+.app-sidebar__nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+
+  gap: var(--spacing-1);
+}
+
+.app-sidebar__link {
+  display: flex;
+  align-items: center;
+
+  min-height: var(--control-height-md);
+
+  padding: var(--spacing-2) var(--spacing-3);
+
+  color: var(--color-text-light);
+
+  border-radius: var(--radius-md);
+
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+
+  transition:
+    background-color var(--transition-fast);
+}
+
+.app-sidebar__link:hover {
+  background-color: var(--color-sidebar-hover);
+}
+
+.app-sidebar__link--active,
+.app-sidebar__link--active:hover {
+  background-color: var(--color-sidebar-active);
+
+  font-weight: var(--font-weight-semibold);
+}
+
+/* El outline global es verde sobre fondo verde oscuro: no se ve.
+   Se dibuja hacia adentro para que el overflow del menú no lo corte. */
+.app-sidebar__link:focus-visible,
+.app-sidebar__logout:focus-visible {
+  outline: 2px solid var(--color-text-light);
+  outline-offset: -2px;
+}
+
+.app-sidebar__logout {
+  min-height: var(--control-height-md);
+
+  padding: var(--spacing-2) var(--spacing-3);
+
+  color: var(--color-text-light);
+
+  border: 1px solid var(--color-primary-light);
+  border-radius: var(--radius-md);
+
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+
+  transition:
+    background-color var(--transition-fast);
+}
+
+.app-sidebar__logout:hover {
+  background-color: var(--color-sidebar-hover);
+}
+
+@media (max-width: 768px) {
+  .app-sidebar {
+    position: static;
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand logout"
+      "nav nav";
+    align-items: center;
+
+    gap: var(--spacing-2) var(--spacing-3);
+
+    width: auto;
+    height: auto;
+
+    padding: var(--spacing-3) var(--spacing-4);
+
+    overflow-y: visible;
+  }
+
+  .app-sidebar__brand {
+    grid-area: brand;
+
+    padding: 0;
+  }
+
+  .app-sidebar__brand span {
+    display: none;
+  }
+
+  .app-sidebar__nav {
+    grid-area: nav;
+
+    flex: none;
+    flex-direction: row;
+
+    min-width: 0;
+
+    overflow-x: auto;
+
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-sidebar__link {
+    flex: none;
+
+    white-space: nowrap;
+  }
+
+  .app-sidebar__logout {
+    grid-area: logout;
+  }
+}

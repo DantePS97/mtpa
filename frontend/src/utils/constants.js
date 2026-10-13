@@ -619,6 +619,13 @@ export const ROLE_PERMISSIONS = {
 // CONFIGURACIÓN DE NAVEGACIÓN
 // =========================================================
 
+/*
+ * "pendiente: true" marca los ítems cuya página todavía no está
+ * montada en router/AppRoutes.jsx; Sidebar.jsx no los muestra para
+ * no llevar al usuario a la página 404. Se quita la marca cuando
+ * se monta la página.
+ */
+
 export const NAVIGATION_ITEMS = [
 
   {
@@ -637,18 +644,21 @@ export const NAVIGATION_ITEMS = [
     label: "Dispositivos",
     path: ROUTES.DEVICES,
     permission: PERMISSIONS.VIEW_DEVICES,
+    pendiente: true,
   },
 
   {
     label: "Históricos",
     path: ROUTES.HISTORY,
     permission: PERMISSIONS.VIEW_HISTORY,
+    pendiente: true,
   },
 
   {
     label: "Estadísticas",
     path: ROUTES.STATISTICS,
     permission: PERMISSIONS.VIEW_STATISTICS,
+    pendiente: true,
   },
 
   {
@@ -673,12 +683,14 @@ export const NAVIGATION_ITEMS = [
     label: "Auditoría",
     path: ROUTES.AUDIT,
     permission: PERMISSIONS.VIEW_AUDIT,
+    pendiente: true,
   },
 
   {
     label: "Configuración",
     path: ROUTES.SETTINGS,
     permission: PERMISSIONS.MANAGE_SETTINGS,
+    pendiente: true,
   },
 ];
 
