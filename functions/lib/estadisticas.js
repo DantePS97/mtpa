@@ -214,4 +214,3 @@ module.exports = {
   instanteAFecha,
   ZONA_HORARIA_PROYECTO,
 };
-
