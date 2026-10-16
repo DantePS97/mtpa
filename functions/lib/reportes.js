@@ -2,8 +2,11 @@
 "use strict";
 
 // functions/lib/reportes.js
-
-const PDFDocument = require("pdfkit");
+//
+// Genera los archivos CSV y PDF de los reportes. `pdfkit` se carga recién
+// dentro de `generarPdf`: así este módulo (y `generarCsv`) se puede importar
+// sin la dependencia instalada, y las demás Cloud Functions del proyecto no
+// pagan su costo en cada arranque en frío.
 
 const MAX_FILAS_CSV = 50000;
 const MAX_FILAS_PDF = 2000;
@@ -95,6 +98,11 @@ function escaparCampoCsv(valor) {
 /**
  * Genera un CSV con separador coma y BOM UTF-8.
  *
+ * Cada fila puede ser un arreglo (en el mismo orden que `columnas`) o un
+ * objeto cuyas claves son **literalmente** los nombres de `columnas`: con la
+ * columna "Temperatura (°C)" y la fila `{ temperatura: 36.5 }` la celda queda
+ * vacía, sin error. Ante la duda, pasá arreglos.
+ *
  * @param {Array<string>} columnas
  * @param {Array<Array|Object>} filas
  * @returns {string}
@@ -155,6 +163,9 @@ function validarEntrada(columnas, filas) {
 /**
  * Genera un PDF paginado y lo devuelve como Buffer.
  *
+ * Las filas siguen el mismo contrato que en `generarCsv` (arreglos, u objetos
+ * con claves iguales a los nombres de `columnas`).
+ *
  * @param {Object} opciones
  * @param {string} opciones.titulo
  * @param {string} opciones.incubadora
@@ -179,6 +190,9 @@ async function generarPdf({
       `El PDF supera el máximo permitido de ${MAX_FILAS_PDF} filas.`
     );
   }
+
+  // Carga perezosa (ver el encabezado del archivo).
+  const PDFDocument = require("pdfkit");
 
   const doc = new PDFDocument({
     size: "A4",
@@ -206,9 +220,6 @@ async function generarPdf({
 
   const anchoPagina =
     doc.page.width - doc.page.margins.left - doc.page.margins.right;
-
-  const altoPagina =
-    doc.page.height - doc.page.margins.top - doc.page.margins.bottom;
 
   const anchoColumna = anchoPagina / columnas.length;
   const altoFila = 25;
