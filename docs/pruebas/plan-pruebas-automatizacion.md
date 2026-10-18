@@ -36,13 +36,41 @@ Ejecución de la orden:
 Desenlaces alternativos: "fallida" (sin confirmación en 30 s) y "expirada" (más de 60 s pendiente)
 ```
 
-> **Estado de este plan: Plan documentado; ejecución pendiente (requiere
-> Firebase y broker reales).**
+> **Estado de este plan: ejecutado en local el 2026-10-18 (51 casos: 50 Pasó,
+> 1 Parcial, 0 Falló). Pendiente de repetir contra Firebase y HiveMQ Cloud
+> reales.**
 >
-> Ningún caso de este documento fue ejecutado. Todos requieren un proyecto de
-> Firebase real (o su emulador), el broker MQTT (HiveMQ Cloud) y el Servicio
-> de Integración en ejecución. Las columnas `Resultado` y `Evidencia` de la
-> sección 11 están vacías a propósito: se completan al ejecutar las pruebas.
+> Se ejecutó contra `origin/main` en el commit `0ec7866`, en un entorno
+> **local**: emuladores de Firebase (Auth, Firestore y Functions, proyecto
+> `demo-mtpa`), un broker MQTT local (aedes con TLS autofirmado), y el Servicio
+> de Integración, el simulador y la interfaz (servidor de desarrollo de Vite,
+> en un navegador) del repositorio. Cómo se montó el entorno:
+> `docs/pruebas/ejecucion-local-emuladores.md`. Los resultados y la evidencia
+> de cada caso están en la sección 11.
+>
+> Qué **no** cubre esta ejecución:
+>
+> - **Firebase real.** Auth, Firestore y Cloud Functions se probaron solo en
+>   sus emuladores.
+> - **Atomicidad de AU-48.** Las 3 tandas de 5 mediciones simultáneas dieron
+>   una sola orden, pero en el emulador de Firestore. La garantía de la
+>   transacción con consulta depende del comportamiento de Firestore real y
+>   sigue sin verificarse allí.
+> - **HiveMQ Cloud y hardware real.** El broker fue uno local, y el ventilador
+>   fue siempre el simulador o un cliente MQTT manual.
+> - **Índices compuestos.** El emulador de Firestore no exige índices, así que
+>   el despliegue de `firestore.indexes.json` (el índice de
+>   `ordenes_ventilador` que usa la automatización) no quedó validado.
+> - **AU-49, parcial.** Los tiempos del emulador no son representativos de
+>   Cloud Functions reales y las lecturas de Firestore por medición no se
+>   pueden contar en el emulador; se midió solo la duración relativa y las
+>   lecturas se dedujeron del código.
+> - **Compilación de producción.** El frontend se ejecutó con el servidor de
+>   desarrollo y un parche local no versionado para conectarlo a los
+>   emuladores; no se hizo `build`.
+>
+> Los resultados de este plan valen entonces para el comportamiento del código
+> en un entorno local, no como aceptación del despliegue real.
 
 Los resultados esperados salen del código de las ramas listadas en 0.1, no de
 las descripciones de las tarjetas de Notion. Los textos entre comillas son los
@@ -122,10 +150,13 @@ vuelve a publicar "apagado".
 En `frontend/` crear `.env` con `VITE_FIREBASE_API_KEY`,
 `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`,
 `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID` y
-`VITE_FIREBASE_APP_ID`, y levantar la aplicación con `npm run dev`. El menú
-lateral no está montado en el layout: se entra escribiendo la URL
-(`/ventiladores` y `/ventiladores/automatizacion`) o, como administrador, con el
-enlace "Configurar modo y automatización" de cada tarjeta del panel.
+`VITE_FIREBASE_APP_ID`, y levantar la aplicación con `npm run dev`. El layout
+monta el menú lateral (`Sidebar`): el `administrador` ve Panel general,
+Incubadoras, Alertas, Límites de alerta, Ventiladores y Usuarios; el `operador`,
+Panel general, Incubadoras, Alertas y Ventiladores; la `consulta`, Panel general
+e Incubadoras. **No hay ítem de menú para `/ventiladores/automatizacion`**: el
+administrador llega con el enlace "Configurar modo y automatización" de cada
+tarjeta del panel `/ventiladores`, o escribiendo la URL.
 
 Los campos del formulario de `/ventiladores/automatizacion` son: selectores
 "Incubadora" y "Ventilador"; "Modo de control" (Manual, Automático, Mixto);
@@ -245,7 +276,7 @@ terminar la sección, dejar a VN en modo "Manual".
 | AU-06 | VN en mixto con regla (AU-03). Anotar `actualizadoEn` de la regla. | Elegir "Manual" y pulsar "Guardar". Luego repetirlo por la función con `{ventiladorId, modoControl: "manual", umbralActivacion: "texto", margenHisteresis: -5}`. | Ambos guardados correctos: `modoControl: "manual"` y la regla **conservada sin cambios** (mismos valores y mismo `actualizadoEn`): en modo manual solo se cambia el modo y los demás campos se ignoran, sin validarlos. |
 | AU-07 | AU-06 hecho. | Recargar el formulario y volver a elegir VN. Cambiar el modo a "Automático", marcar "Regla activa", cambiar el umbral a 61 y guardar. | Al abrir, el formulario se precarga con el modo guardado ("Manual") y con la regla guardada (umbral 60, margen 30, "Regla activa" desmarcada). Tras guardar, sigue habiendo **un solo** documento `reglas_automatizacion/<id de VN>` (una regla por ventilador, cuyo id es el del ventilador), con umbral 61 y `actualizadoEn` más reciente. Devolver el umbral a 60. |
 | AU-08 | VN con regla de AU-07. | Guardar umbral 60 y margen 0,01. | Se acepta (el margen mínimo es 0,01): `margenHisteresis: 0.01` en Firestore. |
-| AU-09 | VN con regla de AU-07. | Intentar guardar margen 0,009; margen 0; margen -1 (formulario). Repetir los tres por la función. | Formulario: 0,009 muestra "El margen mínimo es 0,01."; 0 y -1 muestran "El margen debe ser mayor que 0."; no se guarda nada. Función: los tres dan `invalid-argument` con "El margenHisteresis debe ser al menos 0.01.". La regla anterior no cambia. |
+| AU-09 | VN con regla de AU-07. | Intentar guardar margen 0,009; margen 0; margen -1 (formulario). Repetir los tres por la función. | Formulario (valida al pulsar "Guardar"; los mensajes de 0 y -1 aparecen además al teclear): 0,009 muestra "El margen mínimo es 0,01."; 0 y -1 muestran "El margen debe ser mayor que 0."; no se guarda nada. Función: los tres dan `invalid-argument` con "El margenHisteresis debe ser al menos 0.01.". La regla anterior no cambia. |
 | AU-10 | VN con regla de AU-07. | Guardar umbral 60 con margen 60 y con margen 61 (formulario y función). Luego guardar umbral 60 con margen 59,99. | Con margen igual o mayor que el umbral: formulario "El margen debe ser menor que el umbral."; función `invalid-argument` "El umbralActivacion debe ser positivo y mayor que el margenHisteresis."; no se guarda. Con margen 59,99 (menor que el umbral por 0,01) se acepta y se guarda. |
 | AU-11 | VN con regla de AU-07. | Guardar umbral 0 con margen 0,5; umbral -5 con margen 1 (formulario y función). | Formulario: bajo el umbral, "El umbral de activación debe ser positivo y mayor que el margen."; función: `invalid-argument` "El umbralActivacion debe ser positivo y mayor que el margenHisteresis.". No se guarda. |
 | AU-12 | VN con regla de AU-07. | En el formulario, vaciar el umbral y guardar; luego vaciar el margen y guardar (el campo numérico no admite texto). Por la función, enviar `umbralActivacion: "60"` y `margenHisteresis: "30"` como texto. | Formulario: "Ingrese un umbral numérico." y "Ingrese un margen numérico."; no se guarda. Función: `invalid-argument` "El umbralActivacion debe ser un número válido." y "El margenHisteresis debe ser un número válido.". |
@@ -275,7 +306,7 @@ inicial del simulador) y sin órdenes recientes.
 | ---- | ------------ | ----- | ------------------ |
 | AU-22 | AU-21 hecho: VS "Encendido", regla de humedad que pide encender y activa, más de 120 s desde la última orden `encender`. | Cambiar VS a "Mixto" (regla activa). Desde el panel, como `administrador`, pulsar "Apagar". Observar durante 3 minutos. | **Conviven la automática y la manual.** El panel admite el comando: se crea una orden `apagar` con `origen: "manual"` y `solicitadoPor` igual al uid, que llega a `ejecutada`. En la primera medición posterior en que la regla vuelve a pedir "encender" y se cumplan los 120 s desde la última orden `encender`, se crea una orden `encender` con `origen: "automatico"` y `solicitadoPor: "sistema"` que también llega a `ejecutada`. Es decir, en modo mixto la automática puede revertir la manual (comportamiento documentado). Los botones del panel están habilitados en mixto. |
 | AU-23 | AU-22 hecho; esperar más de 120 s desde la última orden `encender` de VS. | Cambiar VS a "Manual" y pulsar "Apagar". Observar al menos 6 mediciones. | **Ventilador en `manual`: no se crean órdenes automáticas**, aunque la regla de humedad siga pidiendo encender. `reglas_automatizacion/<id de VS>` conserva la regla (mismo `actualizadoEn`). VS queda "Apagado". |
-| AU-24 | AU-23 hecho (VS manual, "Apagado"). | Elegir "Mixto", **desmarcar** "Regla activa" y guardar. Esperar al menos 6 mediciones. Después marcar "Regla activa" y guardar. | **Regla con `activa: false`: no se crean órdenes** mientras está inactiva (con `activa: false` en Firestore y la regla conservada). Al reactivarla, la primera medición posterior pide "encender" y se crea la orden automática, que llega a `ejecutada`. |
+| AU-24 | AU-23 hecho (VS manual, "Apagado"). | Elegir "Mixto", **desmarcar** "Regla activa" y guardar. Esperar al menos 6 mediciones. Después marcar "Regla activa" y guardar. | **Regla con `activa: false`: no se crean órdenes** mientras está inactiva (con `activa: false` en Firestore y la regla conservada). Al reactivarla, la primera medición posterior **que cruce el umbral** pide "encender" y se crea la orden automática, que llega a `ejecutada`: con el simulador el valor deriva y puede quedar dentro de la banda justo tras reactivar (sin orden, por la histéresis); si pasa, esperar la siguiente medición o mover la regla (0.6) justo antes de reactivarla. |
 | AU-25 | VS en "Automático" con la regla activa (cualquier regla válida). | Comprobar el panel de VS y llamar a `enviarComandoVentilador` directamente (como en CV-19 del plan de control). | Los botones están deshabilitados y la función rechaza el comando manual con `failed-precondition` ("El ventilador está configurado en modo automático y no admite comandos manuales."), pero la automatización **sigue** creando órdenes cuando corresponde (por ejemplo, tras mover la regla con 0.6). |
 
 ## 4. Cooldown, órdenes en curso y reintentos
@@ -325,7 +356,7 @@ Sobre VS y VN (incubadora A), con el simulador corriendo.
 | ---- | ------------ | ----- | ------------------ |
 | AU-42 | VS y VN en automático, sin órdenes recientes de encender; VS "Apagado". Leer `V`. | Guardar la regla de VS (encender: umbral `V − 1`, margen 0,2) y la de VN inerte (umbral 60, margen 30). | Solo VS recibe una orden `encender`; VN no recibe ninguna. Cada regla se evalúa por separado. |
 | AU-43 | VS "Apagado"; sin órdenes `encender` de VS ni de VN en los últimos 120 s. Leer `V`. | Guardar para **ambos** la regla de encender (umbral `V − 1`, margen 0,2). | En la misma medición se crea una orden `encender` para cada uno. La de VS llega a `ejecutada`; la de VN queda `enviada` y termina `fallida` (30–40 s). Los desenlaces son independientes. |
-| AU-44 | VS en `manual`. VN en automático, `estadoActual: null`, sin órdenes recientes. Leer el último valor `H` de humedad. | Guardar para VN la regla de **humedad** con umbral `H − 5` y margen 1. Observar 3 mediciones del simulador (cada una trae temperatura y humedad). | VN recibe una orden `encender` (la humedad está por encima del umbral) y **ninguna orden `apagar`**: las mediciones de temperatura (35–40 °C) quedarían muy por debajo del límite de apagado (`H − 6`, alrededor de 50) si se compararan con esta regla, pero la regla solo se evalúa con mediciones de humedad. Devolver a VN al estado inerte. |
+| AU-44 | VS en `manual`. VN en automático, `estadoActual: null`, sin órdenes recientes: antes de empezar, dejar la regla de VN inerte (60/30) y esperar 120 s desde su última orden `encender` (por ejemplo, la de AU-43 si su regla de temperatura sigue activa), o el cooldown bloqueará la orden esperada. Leer el último valor `H` de humedad. | Guardar para VN la regla de **humedad** con umbral `H − 5` y margen 1. Observar 3 mediciones del simulador (cada una trae temperatura y humedad). | VN recibe una orden `encender` (la humedad está por encima del umbral) y **ninguna orden `apagar`**: las mediciones de temperatura (35–40 °C) quedarían muy por debajo del límite de apagado (`H − 6`, alrededor de 50) si se compararan con esta regla, pero la regla solo se evalúa con mediciones de humedad. Devolver a VN al estado inerte. |
 | AU-45 | VS "Apagado" en automático con una regla que pide encender (0.6), sin órdenes `encender` recientes, y VN con la regla inválida: editar a mano en la consola `reglas_automatizacion/<id de VN>.umbralActivacion` a un texto (por ejemplo `"abc"`). Anotar el valor original. | Esperar 3 mediciones. Mirar los registros de la función `procesarMedicion`. | VN no recibe órdenes y el registro muestra la advertencia "La regla de automatización tiene valores inválidos." con el `reglaId`; **VS sigue recibiendo órdenes** y las mediciones se guardan (`procesarMedicion` responde 201). Restaurar el valor. |
 
 ## 7. Fallos del ventilador y del simulador
@@ -365,73 +396,106 @@ Las tarjetas de Notion y el repositorio no detallan cuál de los dos requisitos
 
 ## 11. Registro de resultados
 
-Completar al ejecutar el plan. `Resultado`: Aprobado / Fallido / Bloqueado.
-`Evidencia`: captura de pantalla, extracto de log o enlace al documento de
-Firestore (ocultar tokens y credenciales).
+Resultados de la ejecución local del 2026-10-18 (ver el recuadro de estado al
+inicio: emuladores, broker local, commit `0ec7866`). `Resultado`: Pasó /
+Parcial / Falló / Bloqueado. `Evidencia`: lo observado, con la ruta o el campo
+donde se comprobó (ocultar tokens y credenciales). Las siglas H-nn remiten a
+los hallazgos de abajo. Al repetir el plan, reemplazar estas filas con el
+resultado de la nueva ejecución e indicar el entorno.
+
+Totales: **51 casos: 50 Pasó, 1 Parcial (AU-49), 0 Falló, 0 Bloqueado.**
 
 | Caso | Descripción | Resultado | Evidencia |
 | ---- | ----------- | --------- | --------- |
-| AU-01 | Ventilador nuevo: manual, formulario vacío, sin regla | | |
-| AU-02 | Guardar modo automático con regla válida | | |
-| AU-03 | Guardar mixto con la regla inactiva | | |
-| AU-04 | Automático con regla inactiva rechazado en el formulario | | |
-| AU-05 | Automático con regla inactiva rechazado por la función | | |
-| AU-06 | Manual conserva la regla guardada | | |
-| AU-07 | Precarga y reemplazo: una regla por ventilador | | |
-| AU-08 | Margen mínimo 0,01 aceptado | | |
-| AU-09 | Margen menor que 0,01, cero o negativo rechazado | | |
-| AU-10 | Margen igual o mayor que el umbral rechazado | | |
-| AU-11 | Umbral cero o negativo rechazado | | |
-| AU-12 | Campos vacíos o no numéricos rechazados | | |
-| AU-13 | Variable, activa, modo y ventiladorId inválidos | | |
-| AU-14 | Ventilador inexistente | | |
-| AU-15 | Cruce del umbral: orden automática de encender hasta `ejecutada` | | |
-| AU-16 | Panel: estado, última orden y botones bloqueados | | |
-| AU-17 | Sin tormenta de órdenes con el estado ya coincidente | | |
-| AU-18 | Zona de histéresis: ni encender ni apagar | | |
-| AU-19 | Por debajo del límite de apagado: orden de apagar | | |
-| AU-20 | Sin órdenes con el ventilador ya apagado | | |
-| AU-21 | Regla sobre humedad | | |
-| AU-22 | Modo mixto: conviven la manual y la automática | | |
-| AU-23 | Modo manual: sin órdenes automáticas | | |
-| AU-24 | Regla inactiva: sin órdenes; al reactivarla vuelve a operar | | |
-| AU-25 | Automático rechaza manuales y la regla sigue operando | | |
-| AU-26 | Sin duplicados con la orden anterior `fallida` (cooldown) | | |
-| AU-27 | Reintento al cumplirse los 120 s | | |
-| AU-28 | Tiempo mínimo entre ciclos de la misma acción | | |
-| AU-29 | Ventana de 300 s de una orden en curso | | |
-| AU-30 | El cooldown vale también tras `ejecutada` | | |
-| AU-31 | La regla es por incubadora | | |
-| AU-32 | Zona de histéresis con valor exacto cerca de los bordes | | |
-| AU-33 | Límite de apagado exacto (inclusivo) con estado `null` | | |
-| AU-34 | Umbral exacto (inclusivo) | | |
-| AU-35 | Cooldown con valores en los bordes | | |
-| AU-36 | Cooldown a ~110 s y ~125 s | | |
-| AU-37 | Margen mínimo 0,01 en la evaluación | | |
-| AU-38 | Punto flotante (0,3 − 0,1) | | |
-| AU-39 | `estadoActual` ya coincide: sin orden | | |
-| AU-40 | Variable distinta: sin orden | | |
-| AU-41 | `valor` inválido en `procesarMedicion` | | |
-| AU-42 | Dos ventiladores: dispara solo uno | | |
-| AU-43 | Dos ventiladores: disparan los dos, desenlaces independientes | | |
-| AU-44 | Cada regla con su variable | | |
-| AU-45 | Regla inválida de un ventilador no frena al otro | | |
-| AU-46 | Orden `fallida` sin romper el procesamiento de mediciones | | |
-| AU-47 | Simulador detenido y reiniciado | | |
-| AU-48 | Cinco mediciones simultáneas: una sola orden | | |
-| AU-49 | Carga adicional por medición | | |
-| AU-50 | `guardarReglaAutomatizacion`: rol equivocado y sin sesión | | |
-| AU-51 | Formulario de reglas solo para el administrador | | |
+| AU-01 | Ventilador nuevo: manual, formulario vacío, sin regla | Pasó | Con VN recién creado el formulario mostró Modo "Manual" con "Solo se aceptan comandos manuales.", variable "Temperatura", umbral y margen vacíos, "Regla activa" marcada, los campos de la regla deshabilitados y la nota de modo manual. En Firestore no existía la regla y `modoControl` era `manual`. |
+| AU-02 | Guardar modo automático con regla válida | Pasó | Automático, Temperatura, 60, 30 y activa: aparecieron el aviso y "La configuración del ventilador se guardó correctamente.". En Firestore `modoControl: "automatico"` y la regla con `ventiladorId` e `incubadoraId` correctos, 60, 30, `activa: true` y `actualizadoPor` del administrador. |
+| AU-03 | Guardar mixto con la regla inactiva | Pasó | Mixto con "Regla activa" desmarcada: apareció "Con la regla inactiva, el ventilador solo responderá a los comandos manuales." y se guardó `modoControl: "mixto"` con `activa: false`. |
+| AU-04 | Automático con regla inactiva rechazado en el formulario | Pasó | Al elegir Automático con la regla inactiva apareció bajo la casilla "En modo automático la regla debe estar activa. Elija el modo Mixto si desea dejarla inactiva."; Guardar no llamó a la función (`modoControl` siguió en `mixto` y la regla con el mismo `actualizadoEn`). |
+| AU-05 | Automático con regla inactiva rechazado por la función | Pasó | La función con `modoControl: "automatico"` y `activa: false` respondió 400 `INVALID_ARGUMENT` con el mensaje esperado ("En modo automático la regla debe estar activa...") y no cambió ni el modo ni la regla. |
+| AU-06 | Manual conserva la regla guardada | Pasó | Manual más Guardar dejó `modoControl: "manual"` con la regla idéntica (mismo `actualizadoEn`, 60/30, inactiva). La llamada con `umbralActivacion: "texto"` y `margenHisteresis: -5` respondió 200 `ok: true` y tampoco tocó la regla. |
+| AU-07 | Precarga y reemplazo: una regla por ventilador | Pasó | Al reabrir, el formulario se precargó con el modo `manual` y la regla guardada (60/30, inactiva, Temperatura). Guardar con umbral 61 dejó un solo documento de regla con el id del ventilador, con umbral 61 y `actualizadoEn` más reciente; se devolvió a 60. |
+| AU-08 | Margen mínimo 0,01 aceptado | Pasó | Umbral 60 y margen 0,01 se guardaron: `margenHisteresis: 0.01` en Firestore. |
+| AU-09 | Margen menor que 0,01, cero o negativo rechazado | Pasó | Formulario: margen 0,009 mostró "El margen mínimo es 0,01." y 0 y -1 "El margen debe ser mayor que 0."; no se guardó nada. Función: los tres valores dieron 400 `INVALID_ARGUMENT` "El margenHisteresis debe ser al menos 0.01.". Los mensajes aparecen al pulsar Guardar (los de 0 y -1 también al teclear). |
+| AU-10 | Margen igual o mayor que el umbral rechazado | Pasó | Con umbral 60, margen 60 y 61 dieron "El margen debe ser menor que el umbral." en el formulario y 400 `INVALID_ARGUMENT` en la función, sin guardar. Margen 59,99 se aceptó (`margenHisteresis: 59.99`). |
+| AU-11 | Umbral cero o negativo rechazado | Pasó | Umbral 0 con margen 0,5 y umbral -5 con margen 1: el formulario mostró "El umbral de activación debe ser positivo y mayor que el margen." y la función respondió 400 `INVALID_ARGUMENT` "El umbralActivacion debe ser positivo y mayor que el margenHisteresis."; no se guardó. |
+| AU-12 | Campos vacíos o no numéricos rechazados | Pasó | Formulario: umbral vacío mostró "Ingrese un umbral numérico.", margen vacío "Ingrese un margen numérico." y ambos vacíos los dos mensajes. Función con "60" y "30" como texto: 400 `INVALID_ARGUMENT` "El umbralActivacion debe ser un número válido." y "El margenHisteresis debe ser un número válido.". |
+| AU-13 | Variable, activa, modo y ventiladorId inválidos | Pasó | Con un campo inválido por llamada (`variable: "presion"`, `activa: "si"`, `modoControl: "turbo"`, sin `ventiladorId` y `ventiladorId: "a/b"`) la función respondió 400 `INVALID_ARGUMENT` con los cinco mensajes esperados, sin escribir nada. |
+| AU-14 | Ventilador inexistente | Pasó | Con `ventiladorId: "no-existe"` y un payload válido la función respondió 404 `NOT_FOUND` "El ventilador solicitado no existe." y no se creó ninguna regla. |
+| AU-15 | Cruce del umbral: orden automática de encender hasta `ejecutada` | Pasó | Con la regla de VS guardada por la función (la misma que usa el formulario, para cumplir la ventana de ~40 s) en umbral V - 1 y margen 0,2, la medición evaluada (37,63, mayor que 36,6) creó una sola orden `encender` (`origen: "automatico"`, `solicitadoPor: "sistema"`) que pasó por `enviadaEn` y `ejecutadaEn` en ~160 ms hasta `ejecutada`, sin `error`. `estadoActual: "encendido"`. |
+| AU-16 | Panel: estado, última orden y botones bloqueados | Pasó | La tarjeta de VS mostró el chip "Encendido", "Modo de control: Automático" y la última orden "Encender" en "Ejecutada" con "El ventilador confirmó el cambio.", con los botones deshabilitados por "El ventilador está en modo automático y no admite comandos manuales.". |
+| AU-17 | Sin tormenta de órdenes con el estado ya coincidente | Pasó | Durante 8 mediciones (~64 s), todas por encima del umbral, no se creó ninguna orden nueva: siguió habiendo una sola `encender`. |
+| AU-18 | Zona de histéresis: ni encender ni apagar | Pasó | Con la regla 39,3/4 (límite de apagado 35,3), las 6 mediciones evaluadas en 46 s (entre 37,1 y 37,28) quedaron dentro de la banda: 0 órdenes nuevas y `estadoActual` siguió en `"encendido"`. |
+| AU-19 | Por debajo del límite de apagado: orden de apagar | Pasó | Con la regla 38,2/0,2 (límite de apagado 38,0), la medición 37,19 creó una orden `apagar` (`automatico`/`sistema`) que llegó a `ejecutada`; `estadoActual` pasó a `"apagado"`. |
+| AU-20 | Sin órdenes con el ventilador ya apagado | Pasó | Con 7 mediciones por debajo del límite y el ventilador ya `apagado` no se creó ninguna orden más: sigue habiendo una sola `apagar`. |
+| AU-21 | Regla sobre humedad | Pasó | Con la regla de humedad 50,8/1 (H = 55,77), la medición de humedad 56,53 creó una orden `encender` automática que llegó a `ejecutada` (`estadoActual: "encendido"`). Las mediciones de temperatura no intervinieron y sigue habiendo un solo documento de regla para VS (reemplazó a la de temperatura). |
+| AU-22 | Modo mixto: conviven la manual y la automática | Pasó | En mixto, el Apagar manual del panel creó una orden `apagar`/`manual` con `solicitadoPor` del administrador que llegó a `ejecutada`. En la primera medición posterior (a los ~8 s) la regla creó una `encender`/`automatico`/`sistema` que también llegó a `ejecutada` y revirtió la manual. Se observó ~2,2 min en vez de 3, suficiente porque la reversión ocurrió a los 8 s. |
+| AU-23 | Modo manual: sin órdenes automáticas | Pasó | En Manual (regla de humedad 50,8/1 conservada, mismo `actualizadoEn`) se pulsó Apagar y durante 75 s (10 mediciones, todas por encima del umbral) no se creó ninguna orden automática; solo la manual. VS quedó "Apagado". |
+| AU-24 | Regla inactiva: sin órdenes; al reactivarla vuelve a operar | Pasó | Con la regla inactiva (Mixto), 7 mediciones en 56 s (las 5 primeras habrían pedido encender) no crearon órdenes y `activa: false` se conservó. Al reactivarla, la 1.ª medición (50,1) quedó dentro de la banda sin orden y la 2.ª (51,11) creó la orden automática `encender`, que llegó a `ejecutada` (H-10, plan corregido). |
+| AU-25 | Automático rechaza manuales y la regla sigue operando | Pasó | En Automático el panel deshabilitó los botones con el texto esperado y `enviarComandoVentilador` dio 400 `FAILED_PRECONDITION` para administrador y operador. Tras mover la regla (38,3/0,2) la automatización siguió operando: creó una orden `apagar`/`automatico`/`sistema` que llegó a `ejecutada`. |
+| AU-26 | Sin duplicados con la orden anterior `fallida` (cooldown) | Pasó | Con la regla de encender sobre VN (36,8/0,2), la 1.ª orden automática pasó a `enviada` y a `fallida` (~39 s después de `enviadaEn`, "El dispositivo no confirmó el estado en 30 s."). A t0 + 110 s seguía habiendo una sola orden, aunque `estadoActual` era `null`. VS estaba en mixto y no en manual, sin interferir. |
+| AU-27 | Reintento al cumplirse los 120 s | Pasó | La 2.ª orden `encender` automática se creó a t0 + 120,1 s (en la 1.ª medición posterior a los 120 s) y la 3.ª a t0 + 240,25 s; entre ambas no hubo otra. VN se devolvió a la regla inerte 60/30. |
+| AU-28 | Tiempo mínimo entre ciclos de la misma acción | Pasó | En VN: `apagar` en t0, `encender` ~16 s después (la acción contraria no bloquea), nueva necesidad de apagar a t0 + 30 s sin orden por el cooldown, y 2.ª `apagar` a t0 + 120,14 s. Se volvió a guardar la regla a t0 + 100 s con un valor nuevo para asegurar que la medición siguiera fuera de banda (permitido por 0.6). |
+| AU-29 | Ventana de 300 s de una orden en curso | Pasó | Con el servicio detenido y VB (regla 30/0,5), una medición de 31 °C creó una orden `encender` que quedó `pendiente`; a ~100 s y a ~130 s no se creó otra y a ~310 s se creó la 2.ª. Al arrancar el servicio, la 1.ª pasó a `expirada` ("tiene 322 s y el máximo es 60 s") y la 2.ª se publicó y terminó `fallida`. |
+| AU-30 | El cooldown vale también tras `ejecutada` | Pasó | En VB, la medición de 31 °C creó una orden `encender` que se cerró como `ejecutada` al informar `{"encendido": true}` a mano. Tras informar `"apagado"`, la medición de ~60 s no creó orden (cooldown de 120 s tras `ejecutada`) y la de ~125 s creó una nueva. |
+| AU-31 | La regla es por incubadora | Pasó | Con la regla de VB (incubadora B) guardada con el formulario, durante 36 s el simulador de la incubadora A publicó 5 mediciones (todas mayores que 30) y VB no recibió ninguna orden. |
+| AU-32 | Zona de histéresis con valor exacto cerca de los bordes | Pasó | `procesarMedicion` con 29,99 y 29,51 (incubadora B): ambas respondieron HTTP 201 `ok: true` y no se creó ninguna orden (zona de histéresis). |
+| AU-33 | Límite de apagado exacto (inclusivo) con estado `null` | Pasó | Con `estadoActual` en `null`, la medición 29,5 (límite de apagado exacto) respondió 201 y creó una orden `apagar`/`automatico`/`sistema`, que terminó `fallida` por falta de respuesta de VB. |
+| AU-34 | Umbral exacto (inclusivo) | Pasó | La medición 30 (umbral exacto) respondió 201 y creó una orden `encender`/`automatico`/`sistema`; la `apagar` anterior no la bloqueó. |
+| AU-35 | Cooldown con valores en los bordes | Pasó | Con las dos órdenes de menos de 1 s, las mediciones 29,49 y 30,01 respondieron 201 y no crearon órdenes (total 2): bloqueo por tiempo de la misma acción. |
+| AU-36 | Cooldown a ~110 s y ~125 s | Pasó | A ~110 s de t_a y t_e (ambas ya `fallida`) las mediciones 29,4 y 31 no crearon órdenes; a ~125 s se creó una `apagar` y una `encender` nuevas. |
+| AU-37 | Margen mínimo 0,01 en la evaluación | Pasó | Con margen 0,01 (límite 29,99): 29,995 respondió 201 sin orden y 29,99 (límite exacto) creó una orden `apagar`. |
+| AU-38 | Punto flotante (0,3 − 0,1) | Pasó | Con umbral 0,3 y margen 0,1: 0,2000001 no creó orden, 0,2 creó una `apagar` y 0,3 una `encender`, con más de 120 s desde las órdenes previas de VB. |
+| AU-39 | `estadoActual` ya coincide: sin orden | Pasó | Con VB informado como `"encendido"` a mano, la medición 31 no creó orden; con VB `"apagado"`, la medición 29 tampoco. Ambas respondieron 201. |
+| AU-40 | Variable distinta: sin orden | Pasó | Una medición de humedad de 50 contra la regla de temperatura de VB (con VB "apagado") respondió 201 y no creó órdenes. |
+| AU-41 | `valor` inválido en `procesarMedicion` | Pasó | `procesarMedicion` con `valor: "abc"` respondió 400 "valor debe ser un número válido."; sin `valor` y con `null`, 400 con `camposFaltantes: ["valor"]`. La colección `mediciones` no cambió (508 documentos antes y después) y no se creó ninguna orden. |
+| AU-42 | Dos ventiladores: dispara solo uno | Pasó | Con la regla de VS en 36,0/0,2 y la de VN inerte (60/30), solo VS recibió una orden `encender` (llegó a `ejecutada`); VN no recibió ninguna. VS estaba en `manual` y pasó a automático al guardar su regla. |
+| AU-43 | Dos ventiladores: disparan los dos, desenlaces independientes | Pasó | Con la misma regla de encender para ambos, la misma medición creó dos órdenes `encender` automáticas, una por ventilador: la de VS llegó a `ejecutada` y la de VN terminó `fallida` a los ~35 s. |
+| AU-44 | Cada regla con su variable | Pasó | Con la regla de humedad de VN (38,5/1), 3 mediciones produjeron una sola orden `encender` y ninguna `apagar`, aunque las 3 temperaturas (37,08, 36,94 y 36,99) estaban por debajo de 37,5. El caso se repitió: la 1.ª ejecución quedó invalidada por el cooldown de una orden de AU-43 (H-09, plan corregido). |
+| AU-45 | Regla inválida de un ventilador no frena al otro | Pasó | Con `umbralActivacion` de la regla de VN editado a "abc", VS siguió recibiendo órdenes (una `encender` automática llegó a `ejecutada`), VN no recibió ninguna, las mediciones se guardaron y el log de la función mostró 3 veces "La regla de automatización tiene valores inválidos." con el `reglaId`. Se restauró el valor. |
+| AU-46 | Orden `fallida` sin romper el procesamiento de mediciones | Pasó | Las órdenes automáticas de VN pasaron a `enviada` y a `fallida` (~35 s) con el error esperado, y el panel mostró VN "Desconocido" con el bloque "Fallida". En 180 s llegaron 22 mediciones de temperatura y 22 de humedad a intervalos de 8 s, sin "Error al evaluar la automatización de ventiladores." en el log de la función; `estadoActual` de VN siguió en `null`. |
+| AU-47 | Simulador detenido y reiniciado | Pasó | Con el simulador detenido 60 s no llegaron mediciones ni se crearon órdenes. Al reiniciarlo publicó "apagado" (`estadoActual` pasó a `"apagado"` sin orden) y con la primera medición posterior (más de 120 s desde la última `encender`) se creó una `encender` automática que llegó a `ejecutada`. |
+| AU-48 | Cinco mediciones simultáneas: una sola orden | Pasó | En 3 tandas de 5 mediciones simultáneas de 31 °C a `procesarMedicion` (separadas por más de 300 s) hubo 5 respuestas 201 y 5 mediciones guardadas por tanda, y una sola orden `encender` en cada una. Es el resultado en el emulador de Firestore: la atomicidad no está verificada contra Firestore real. |
+| AU-49 | Carga adicional por medición | Parcial | Contra el emulador, la mediana de duración de `procesarMedicion` fue ~63 ms sin regla o con la regla en la banda, ~113 ms con la regla fuera de banda y la orden bloqueada por cooldown o estado, y ~120 ms al crear la orden (lotes de 10 mediciones, todas 201). Las lecturas de Firestore no se pueden contar en el emulador y se dedujeron del código; los tiempos no son representativos de Cloud Functions reales. |
+| AU-50 | `guardarReglaAutomatizacion`: rol equivocado y sin sesión | Pasó | Con un ventilador nuevo: operador y consulta recibieron 403 `PERMISSION_DENIED` y sin sesión 401 `UNAUTHENTICATED`, sin escribir nada (`modoControl` siguió `manual` y no existe la regla). El administrador recibió 200 `ok: true` con `modoControl: "automatico"` y quedaron guardados el modo y la regla. |
+| AU-51 | Formulario de reglas solo para el administrador | Pasó | Operador y consulta redirigieron a `/sin-autorizacion` y sin sesión a `/login`; las tarjetas de `/ventiladores` del operador no tienen el enlace "Configurar modo y automatización". |
+
+### Hallazgos de la ejecución
+
+Defectos y fricciones que dejó la ejecución local y que afectan a este plan.
+Ninguno hizo fallar un caso. **Todos están pendientes de corrección** (esta
+documentación no los arregla).
+
+| ID | Qué se observó | Impacto | Estado |
+| -- | -------------- | ------- | ------ |
+| H-01 | `enviarComandoVentilador` responde `INTERNAL` (HTTP 500) cuando `ventiladorId` no es un id de documento válido (`"a/b"`, `"."`, `".."`, `"__x__"`). `guardarReglaAutomatizacion` sí valida esos ids y responde `invalid-argument` (AU-13). Este plan llama a `enviarComandoVentilador` en AU-25. | Baja. No se crea ninguna orden, pero el cliente recibe un error genérico y se registra un error no controlado. | Pendiente de corrección. Al corregirlo, agregar un caso al plan de control de ventiladores (por ejemplo, CV-34 con `"a/b"`). |
+| H-02 | `frontend/.env` y `functions/.secret.local` no están ignorados por git. El plan (0.5) indica crear `frontend/.env`. | Baja. Un commit accidental de esos archivos. En la ejecución se usó `frontend/.env.local`, que sí está ignorado. | Pendiente de corrección. |
+| H-03 | Con `firebase-tools` 15.28.2 y `firebase-admin` 12.7.0, el emulador de Functions deja `admin.firestore.FieldValue` en `undefined` y toda función que escribe con `serverTimestamp()` falla con `INTERNAL`. En producción no ocurre. | Info. Hace falta un workaround local para ejecutar el plan en emuladores (ver `docs/pruebas/ejecucion-local-emuladores.md`). | Pendiente de corrección en el código (importar `FieldValue` y `Timestamp` desde `firebase-admin/firestore`). |
+| H-05 | El alta de dispositivos (`/incubadoras/<id>/editar`) informa solo el `identificadorMqtt`, no el id del documento de `dispositivos/`. Ese id es el que piden el simulador, los tópicos MQTT y este plan (0.3, punto 3). | Menor. Hay que leerlo de Firestore, lo que es una fricción operativa. | Pendiente de corrección. |
+| H-11 | AU-48 (cinco mediciones simultáneas, una sola orden) dio el resultado esperado en las 3 tandas, pero contra el emulador de Firestore. La primera tanda tardó ~23,5 s por el arranque en frío de los workers del emulador. | Info. Sin evidencia de problema; la atomicidad sigue sin verificarse en Firestore real. | Pendiente de verificar en Firestore real. |
+
+Los identificadores H-nn son los de la ejecución y se mantienen iguales en
+`docs/pruebas/plan-pruebas-control-ventiladores.md`. Además, la ejecución
+encontró desviaciones del plan, que **ya se corrigieron en este documento**:
+
+- **H-06.** El `Sidebar` sí está montado y no tiene ítem para
+  `/ventiladores/automatizacion` (0.5).
+- **H-08.** AU-09: los mensajes de validación del formulario aparecen al pulsar
+  "Guardar" (algunos también al teclear).
+- **H-09.** AU-44: puede invalidarse si la regla de VN del caso anterior sigue
+  activa; ahora la precondición pide dejarla inerte (60/30) y esperar 120 s.
+- **H-10.** AU-24: al reactivar la regla, lo que crea la orden es la primera
+  medición posterior que cruce el umbral, no necesariamente "la primera".
 
 ## Notas
 
-- **Plan documentado; ejecución pendiente (requiere Firebase y broker
-  reales).** Ningún caso fue ejecutado al redactar este documento; no hay
-  resultados ni evidencias que reportar todavía.
+- **Ejecución local, no real.** El plan se ejecutó el 2026-10-18 en un entorno
+  local (ver el recuadro de estado al inicio): sus resultados no sustituyen una
+  pasada contra Firebase y HiveMQ Cloud reales, que sigue pendiente.
 - Los casos de validación de la sección 1 (AU-05, AU-09 a AU-14) y AU-50
   pueden ejecutarse con el emulador de Functions y AU-51 solo necesita el
-  frontend con Firebase Auth; el resto requiere el proyecto real, el broker y
-  el Servicio de Integración.
+  frontend con Firebase Auth; el resto necesita el Servicio de Integración y un
+  broker (en la ejecución local, uno propio y no HiveMQ Cloud), y AU-48 y AU-49
+  se apoyan en el comportamiento de Firestore y Cloud Functions reales.
 - `docs/contrato-mqtt.md` describe los tópicos con el prefijo `mtpa/`, pero el
   valor efectivo es el de `MQTT_TOPIC_PREFIX` (`mtpa-dev` por defecto).
 - **Cómo se verifica el valor evaluado.** Para los casos del simulador, el

@@ -26,13 +26,37 @@ Modo de control (manual / automático / mixto):
   /ventiladores/automatizacion (solo administrador) -> guardarReglaAutomatizacion
 ```
 
-> **Estado de este plan: Plan documentado; ejecución pendiente (requiere
-> Firebase y broker reales).**
+> **Estado de este plan: ejecutado en local el 2026-10-18 (53 casos: 52 Pasó,
+> 1 Parcial, 0 Falló). Pendiente de repetir contra Firebase y HiveMQ Cloud
+> reales.**
 >
-> Ningún caso de este documento fue ejecutado. Todos requieren un proyecto de
-> Firebase real (o su emulador), el broker MQTT (HiveMQ Cloud) y el Servicio
-> de Integración en ejecución. Las columnas `Resultado` y `Evidencia` de la
-> sección 11 están vacías a propósito: se completan al ejecutar las pruebas.
+> Se ejecutó contra `origin/main` en el commit `0ec7866`, en un entorno
+> **local**: emuladores de Firebase (Auth, Firestore y Functions, proyecto
+> `demo-mtpa`), un broker MQTT local (aedes con TLS autofirmado), y el Servicio
+> de Integración, el simulador y la interfaz (servidor de desarrollo de Vite,
+> en un navegador) del repositorio. Cómo se montó el entorno:
+> `docs/pruebas/ejecucion-local-emuladores.md`. Los resultados y la evidencia
+> de cada caso están en la sección 11.
+>
+> Qué **no** cubre esta ejecución:
+>
+> - **Firebase real.** Auth, Firestore y Cloud Functions se probaron solo en
+>   sus emuladores. Las reglas de Firestore (CV-51) son las del repositorio,
+>   pero evaluadas por el emulador.
+> - **HiveMQ Cloud y hardware real.** El broker fue uno local, y el ventilador
+>   fue siempre el simulador o un cliente MQTT manual.
+> - **Índices compuestos.** El emulador de Firestore no exige índices, así que
+>   el despliegue de `firestore.indexes.json` (el índice de
+>   `ordenes_ventilador` que usan el panel y el servicio) no quedó validado.
+> - **Compilación de producción.** El frontend se ejecutó con el servidor de
+>   desarrollo y un parche local no versionado para conectarlo a los
+>   emuladores; no se hizo `build`.
+> - **CV-32, parcial.** Se verificó la estructura y la variante de estilo de
+>   cada estado de la orden, pero no se evaluó con rigor el contraste visual
+>   de los colores.
+>
+> Los resultados de este plan valen entonces para el comportamiento del código
+> en un entorno local, no como aceptación del despliegue real.
 
 Los resultados esperados salen del código de las ramas listadas en 0.1, no de
 las descripciones de las tarjetas de Notion. Los textos entre comillas son los
@@ -153,12 +177,15 @@ En `frontend/` crear `.env` con `VITE_FIREBASE_API_KEY`,
 `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID` y
 `VITE_FIREBASE_APP_ID`, y levantar la aplicación con `npm run dev`.
 
-> **Navegación:** el layout de las páginas protegidas (`DashboardLayout`) solo
-> monta el banner de alertas y el contenido de la ruta; el menú lateral
-> (`Sidebar`) no está montado. Se entra escribiendo la URL: `/ventiladores`
-> (panel) y `/ventiladores/automatizacion` (formulario de modo y reglas, solo
-> administrador). Desde el panel, el administrador también llega al formulario
-> con el enlace "Configurar modo y automatización".
+> **Navegación:** el layout de las páginas protegidas (`DashboardLayout`) monta
+> el menú lateral (`Sidebar`), junto con el banner de alertas y el contenido de
+> la ruta. Lo que ofrece cada rol: el `administrador`, Panel general,
+> Incubadoras, Alertas, Límites de alerta, Ventiladores y Usuarios; el
+> `operador`, Panel general, Incubadoras, Alertas y Ventiladores; la `consulta`,
+> Panel general e Incubadoras. El panel es `/ventiladores`. **No hay ítem de
+> menú para `/ventiladores/automatizacion`** (formulario de modo y reglas, solo
+> administrador): se llega con el enlace "Configurar modo y automatización" de
+> cada tarjeta del panel o escribiendo la URL.
 
 ### 0.6 Cómo provocar cada desenlace de una orden
 
@@ -169,7 +196,7 @@ En `frontend/` crear `.env` con `VITE_FIREBASE_API_KEY`,
 | `enviada` prolongada y luego `fallida` | Detener el simulador (Ctrl+C) y enviar el comando a VS, o enviarlo a VN con el simulador corriendo. | `enviada` unos 30 s; `fallida` entre 30 y 40 s después de `enviadaEn`. |
 | `expirada` | Con el servicio detenido, enviar el comando, esperar **más de 60 s** y volver a arrancar el servicio: al reclamar la orden la ve vencida. | Más de 60 s con la orden `pendiente`. |
 | "Atascada" (solo existe en el panel) | Orden `pendiente` o `enviada` que este navegador ve **sin cambios durante 120 s** (por ejemplo, servicio detenido). | 120 s, más hasta 5 s del reloj del panel. |
-| `enviando` | Es transitoria (milisegundos): no se puede observar en el panel de forma fiable. Se da por pasada si la orden termina en `enviada` con `enviadaEn` (CV-21). | — |
+| `enviando` | Es transitoria (decenas de milisegundos): el panel la muestra, pero a simple vista no es fiable. Se observa con un observador de DOM o una grabación de pantalla; si no, se da por pasada cuando la orden termina en `enviada` con `enviadaEn` (CV-21). | ~25-50 ms. |
 
 ### 0.7 Cómo verificar en Firestore
 
@@ -257,7 +284,7 @@ igual en modo `manual` o `mixto`.
 
 | Caso | Precondición | Pasos | Resultado esperado |
 | ---- | ------------ | ----- | ------------------ |
-| CV-21 | VS en modo manual o mixto, servicio y simulador corriendo. | Enviar "Encender" y mirar la tarjeta **sin recargar** ni tocar nada, sacando capturas rápidas (o grabando la pantalla). Revisar el documento de la orden y el log del servicio. | La orden recorre `pendiente` → `enviando` → `enviada` → `ejecutada`; en el panel se ve al menos el resultado final "Ejecutada" (las etapas intermedias duran milisegundos). `enviando` no es observable: se da por pasada porque la orden tiene `enviadaEn` y `actualizadaEn` y el log muestra la publicación y la ejecución. La pantalla no se recarga ni hay que pulsar nada para ver el cambio de la orden y del chip de estado. |
+| CV-21 | VS en modo manual o mixto, servicio y simulador corriendo. | Enviar "Encender" y mirar la tarjeta **sin recargar** ni tocar nada, sacando capturas rápidas (o grabando la pantalla). Revisar el documento de la orden y el log del servicio. | La orden recorre `pendiente` → `enviando` → `enviada` → `ejecutada`; en el panel se ve al menos el resultado final "Ejecutada" (las etapas intermedias duran decenas de milisegundos). `enviando` sí aparece en el panel (~25-50 ms, entre "Pendiente" y "Enviada"), pero solo se capta con un observador de DOM o una grabación de pantalla; si no se logra verla, se da por pasada porque la orden tiene `enviadaEn` y `actualizadaEn` y el log muestra la publicación y la ejecución. La pantalla no se recarga ni hay que pulsar nada para ver el cambio de la orden y del chip de estado. |
 | CV-22 | Servicio **detenido** (Ctrl+C); simulador corriendo; VS en manual. | Enviar "Encender". Observar durante ~30 s sin recargar. | La orden queda en **"Pendiente"** con el texto "En cola, esperando su envío al ventilador." como distintivo de color informativo (no como bloque de error). Los botones "Encender" y "Apagar" quedan deshabilitados con el texto "Hay una orden en curso; espere a que termine para enviar otra.". En Firestore `estado: "pendiente"`, sin `enviadaEn`. Si se vuelve a arrancar el servicio antes de 60 s, la orden avanza sola a "Ejecutada" sin recargar. |
 | CV-23 | Servicio corriendo; simulador **detenido**; VS en manual. | Enviar "Encender" a VS. Observar sin recargar durante ~30 s. | La orden pasa a **"Enviada"** ("Orden enviada; esperando la confirmación del ventilador."), también como distintivo informativo y no como error, con los botones deshabilitados ("Hay una orden en curso; espere a que termine para enviar otra."). En Firestore `estado: "enviada"` con `enviadaEn`; el log del servicio muestra `Orden <id> publicada en ...`. |
 | CV-24 | VS en manual; servicio y simulador corriendo. | Pulsar "Encender" dos veces seguidas lo más rápido posible. | Se crea **una sola** orden en `ordenes_ventilador`: apenas se pulsa el primer clic los botones se deshabilitan (el pulsado muestra "Enviando..."). |
@@ -308,7 +335,7 @@ comprueban la defensa real, que está en el servidor y no en el botón.
 | CV-41 | Sesión de `administrador`. | Abrir `/ventiladores`. | Se muestra el panel completo. Cada tarjeta tiene el enlace "Configurar modo y automatización". |
 | CV-42 | Sesión de `operador`. | Abrir `/ventiladores`. | Se muestra el panel y los botones funcionan (CV-12). Las tarjetas **no** tienen el enlace "Configurar modo y automatización". |
 | CV-43 | Sesión de `consulta`. | Escribir `/ventiladores` en la barra de direcciones. | Se redirige a `/sin-autorizacion` ("Acceso no autorizado", "No tienes permisos para acceder a esta sección." y el enlace "Volver al panel general"). No se muestra el panel. |
-| CV-44 | Sesión de `consulta`. | Revisar los permisos del rol y, si el menú lateral estuviera montado, el menú. | `ROLE_PERMISSIONS` de `consulta` (en `frontend/src/utils/constants.js`) incluye solo lectura de dashboard, incubadoras, mediciones, históricos y estadísticas, y **no** `ver_ventiladores` ni `controlar_ventiladores`; por lo tanto el ítem "Ventiladores" de `NAVIGATION_ITEMS` no se ofrece a ese rol. Mientras el `Sidebar` no esté montado (0.5) el caso se verifica solo por esa revisión del código y se anota "Bloqueado" para la parte visual. |
+| CV-44 | Sesión de `consulta`. | Revisar los permisos del rol y el menú lateral. | `ROLE_PERMISSIONS` de `consulta` (en `frontend/src/utils/constants.js`) incluye solo lectura de dashboard, incubadoras, mediciones, históricos y estadísticas, y **no** `ver_ventiladores` ni `controlar_ventiladores`; por lo tanto el ítem "Ventiladores" de `NAVIGATION_ITEMS` no se ofrece a ese rol. El `Sidebar` está montado (0.5): el menú de `consulta` muestra solo "Panel general" e "Incubadoras", sin "Ventiladores". |
 | CV-45 | Sin sesión iniciada. | Abrir `/ventiladores`. | Redirige a `/login`. |
 | CV-46 | Sesión de `operador`; luego de `consulta`; luego sin sesión. | Abrir `/ventiladores/automatizacion`. | `operador` y `consulta`: redirigen a `/sin-autorizacion`. Sin sesión: redirige a `/login`. El formulario de reglas es solo para el `administrador`. |
 | CV-47 | Usuario de `consulta` con sesión. | Invocar `enviarComandoVentilador` directamente para VS con `accionSolicitada: "encender"`. | `permission-denied`: "Solo un administrador u operador puede enviar comandos a un ventilador.". No se crea ninguna orden. |
@@ -338,78 +365,106 @@ Las tarjetas de Notion y el repositorio no detallan cuál de los dos requisitos
 
 ## 11. Registro de resultados
 
-Completar al ejecutar el plan. `Resultado`: Aprobado / Fallido / Bloqueado.
-`Evidencia`: captura de pantalla, extracto de log o enlace al documento de
-Firestore.
+Resultados de la ejecución local del 2026-10-18 (ver el recuadro de estado al
+inicio: emuladores, broker local, commit `0ec7866`). `Resultado`: Pasó /
+Parcial / Falló / Bloqueado. `Evidencia`: lo observado, con la ruta o el campo
+donde se comprobó. Las siglas H-nn remiten a los hallazgos de abajo. Al
+repetir el plan, reemplazar estas filas con el resultado de la nueva
+ejecución e indicar el entorno.
+
+Totales: **53 casos: 52 Pasó, 1 Parcial (CV-32), 0 Falló, 0 Bloqueado.**
 
 | Caso | Descripción | Resultado | Evidencia |
 | ---- | ----------- | --------- | --------- |
-| CV-01 | Alta de ventilador crea `ventiladores/{id}` (manual, `estadoActual: null`) | | |
-| CV-02 | Ventilador nuevo se muestra "Desconocido" | | |
-| CV-03 | El primer reporte lleva a "Apagado" sin crear orden | | |
-| CV-04 | Script con `--dry-run`: informa y no escribe | | |
-| CV-05 | Script sin modo, con error de tipeo o con ambos: código 2 | | |
-| CV-06 | Ventilador sin documento: no aparece y el comando da `not-found` | | |
-| CV-07 | Script con `--confirmar` crea el documento faltante | | |
-| CV-08 | Script idempotente; el comando deja de dar `not-found` | | |
-| CV-09 | Incubadora sin ventiladores: estado vacío | | |
-| CV-10 | Administrador enciende (flujo completo y logs) | | |
-| CV-11 | Administrador apaga | | |
-| CV-12 | Operador enciende y apaga (`solicitadoPor` del operador) | | |
-| CV-13 | Encender un ventilador ya encendido no da error | | |
-| CV-14 | Campos del documento de la orden manual | | |
-| CV-15 | Pasar a mixto con regla inactiva | | |
-| CV-16 | Administrador controla en mixto | | |
-| CV-17 | Operador controla en mixto | | |
-| CV-18 | Modo automático deshabilita los botones y explica el motivo | | |
-| CV-19 | Comando directo en automático rechazado (`failed-precondition`) | | |
-| CV-20 | Cambio de modo habilita los botones sin recargar | | |
-| CV-21 | Avance de la orden sin recargar | | |
-| CV-22 | "Pendiente" visible con el servicio detenido | | |
-| CV-23 | "Enviada" visible con el simulador detenido | | |
-| CV-24 | Doble clic crea una sola orden | | |
-| CV-25 | Orden en curso de otro usuario bloquea los botones | | |
-| CV-26 | Los botones se rehabilitan al terminar; el bloqueo es por ventilador | | |
-| CV-27 | Orden fallida (simulador detenido) y su presentación | | |
-| CV-28 | Orden fallida en VN sin afectar a VS | | |
-| CV-29 | Orden expirada (servicio detenido más de 60 s) | | |
-| CV-30 | Orden atascada a los 120 s | | |
-| CV-31 | Reenviar desde "Atascada": la vieja expira, la nueva se ejecuta | | |
-| CV-32 | Las órdenes con error se distinguen de las en curso | | |
-| CV-33 | Ventilador inexistente: `not-found` | | |
-| CV-34 | `ventiladorId` ausente o inválido | | |
-| CV-35 | Acción inválida | | |
-| CV-36 | Modo de control inválido en el documento | | |
-| CV-37 | Ventilador sin incubadora o dispositivo asociado | | |
-| CV-38 | Estado MQTT con payload inválido rechazado | | |
-| CV-39 | Estado reportado a mano cierra la orden `enviada` coincidente | | |
-| CV-40 | Estado que no coincide no cierra la orden | | |
-| CV-41 | Administrador accede y ve el enlace de configuración | | |
-| CV-42 | Operador accede sin el enlace de configuración | | |
-| CV-43 | Consulta redirigido a `/sin-autorizacion` | | |
-| CV-44 | Consulta sin permiso de ventiladores (menú) | | |
-| CV-45 | Sin sesión redirige a `/login` | | |
-| CV-46 | Formulario de reglas solo para el administrador | | |
-| CV-47 | `consulta` rechazado en `enviarComandoVentilador` | | |
-| CV-48 | Sin sesión rechazado en `enviarComandoVentilador` | | |
-| CV-49 | Administrador y operador llaman a la función directamente | | |
-| CV-50 | `guardarReglaAutomatizacion` rechaza a operador, consulta y sin sesión | | |
-| CV-51 | Reglas de Firestore: sin escrituras del cliente | | |
-| CV-52 | Selector de incubadora | | |
-| CV-53 | Bloqueo independiente por ventilador | | |
+| CV-01 | Alta de ventilador crea `ventiladores/{id}` (manual, `estadoActual: null`) | Pasó | Al dar de alta un ventilador y un sensor con "+ Agregar dispositivo" se creó `ventiladores/<mismo id>` solo para el ventilador, con `incubadoraId` y `dispositivoId` correctos, `modoControl: "manual"`, `estadoActual: null` y `creadoEn`, sin `actualizadoEn`; el sensor no generó documento. La interfaz solo informa el `identificadorMqtt`, no el id del documento (H-05). |
+| CV-02 | Ventilador nuevo se muestra "Desconocido" | Pasó | En `/ventiladores` (administrador) las dos tarjetas nuevas mostraron el chip "Desconocido", "Modo de control: Manual", "Todavía no se envió ninguna orden." y los botones Encender y Apagar habilitados, sin texto de motivo. |
+| CV-03 | El primer reporte lleva a "Apagado" sin crear orden | Pasó | Al arrancar el simulador el chip de VS pasó a "Apagado" sin recargar. En Firestore `estadoActual: "apagado"` con `actualizadoEn` y 0 órdenes; el log del servicio mostró `Ventilador <id> actualizado a "apagado".`. VN siguió en "Desconocido". |
+| CV-04 | Script con `--dry-run`: informa y no escribe | Pasó | `--dry-run` (con una cuenta de servicio falsa del proyecto `demo-mtpa` y las variables de los emuladores) imprimió el proyecto y "Modo --dry-run: no se escribe nada en Firestore.", listó `Se crearía ventiladores/<id de VD>` y el resumen (3 encontrados, 1 se crearía, 2 ya existían, 0 errores), con código 0 y sin crear el documento. |
+| CV-05 | Script sin modo, con error de tipeo o con ambos: código 2 | Pasó | Sin argumentos, con `--dryrun` y con `--dry-run --confirmar` terminó con código 2 y los mensajes esperados ("Indicá exactamente uno..." en el primero y el tercero; "Argumentos no reconocidos: --dryrun" más la línea de uso en el segundo). El documento de VD siguió sin existir. |
+| CV-06 | Ventilador sin documento: no aparece y el comando da `not-found` | Pasó | Con VD sin documento, la incubadora mostró "Sin ventiladores registrados" y `enviarComandoVentilador` respondió 404 `NOT_FOUND` "El ventilador solicitado no existe." sin crear ninguna orden. |
+| CV-07 | Script con `--confirmar` crea el documento faltante | Pasó | `--confirmar` informó "Creados: 1", "Ya existían: 2" y "Errores: 0" (código 0). `ventiladores/<id de VD>` quedó con `modoControl: "manual"`, `estadoActual: null` y los ids correctos, y su tarjeta apareció en el panel con "Desconocido" en tiempo real. |
+| CV-08 | Script idempotente; el comando deja de dar `not-found` | Pasó | La 2.ª ejecución informó "Creados: 0" y "Ya existían: 3" sin cambiar `creadoEn`. El comando a VD respondió 200 `ok: true`; la orden pasó a `enviada` y terminó `fallida` a los ~35 s ("El dispositivo no confirmó el estado en 30 s."). |
+| CV-09 | Incubadora sin ventiladores: estado vacío | Pasó | Con la incubadora sin ventiladores el panel mostró "Sin ventiladores registrados" y "Esta incubadora no tiene ventiladores. Se crean al dar de alta un dispositivo de tipo ventilador.", sin botones de control. |
+| CV-10 | Administrador enciende (flujo completo y logs) | Pasó | Como administrador el botón mostró "Enviando..." y la orden recorrió Pendiente, Enviando, Enviada y "Ejecutada" ("El ventilador confirmó el cambio.") en ~180 ms, con el chip en "Encendido". En Firestore: `origen: "manual"`, `estado: "ejecutada"`, `solicitadoPor` del administrador, `enviadaEn`, `ejecutadaEn` y sin `error`; los tres logs del servicio y el del simulador (`"encendido":true`) coinciden. |
+| CV-11 | Administrador apaga | Pasó | Apagar como administrador creó una orden `apagar`/`manual` con `solicitadoPor` del administrador que llegó a `ejecutada`; el chip pasó a "Apagado" y `estadoActual` a `"apagado"`. |
+| CV-12 | Operador enciende y apaga (`solicitadoPor` del operador) | Pasó | Como operador, Encender y Apagar terminaron en "Ejecutada" con `solicitadoPor` del operador y `origen: "manual"`. |
+| CV-13 | Encender un ventilador ya encendido no da error | Pasó | Con VS ya en "Encendido", pulsar Encender otra vez no dio error: se creó otra orden `encender`/`manual` que terminó "Ejecutada" y el chip siguió en "Encendido". |
+| CV-14 | Campos del documento de la orden manual | Pasó | La orden manual tiene exactamente `ventiladorId`, `incubadoraId`, `dispositivoId`, `accionSolicitada`, `origen`, `estado`, `solicitadoPor`, `creadaEn`, `enviadaEn`, `actualizadaEn` y `ejecutadaEn`. La función respondió `ok: true`, `ordenId` y "Orden de ventilador creada correctamente.". |
+| CV-15 | Pasar a mixto con regla inactiva | Pasó | Desde "Configurar modo y automatización" (con incubadora y ventilador preseleccionados) se guardó Mixto, Temperatura, 60 y 30 con la regla inactiva: aparecieron el aviso y el mensaje de éxito. En Firestore `modoControl: "mixto"` y la regla con `activa: false`, 60, 30 y `actualizadoPor` del administrador. El panel mostró "Mixto" (el cambio en vivo se comprobó en CV-20). |
+| CV-16 | Administrador controla en mixto | Pasó | En mixto con la regla inactiva, Encender y Apagar del administrador terminaron en "Ejecutada" (chip "Encendido" y luego "Apagado") y no hubo ninguna orden con `origen: "automatico"`. |
+| CV-17 | Operador controla en mixto | Pasó | En mixto, Encender y Apagar con el token de un operador respondieron 200 `ok: true` y las dos órdenes terminaron `ejecutada` con `solicitadoPor` del operador. Se hizo por llamada directa a la función, no con clics en la interfaz (los clics del operador ya se cubrieron en CV-12). |
+| CV-18 | Modo automático deshabilita los botones y explica el motivo | Pasó | Al elegir Automático apareció el aviso y, con la regla activa 60/30, se guardó `modoControl: "automatico"`. En el panel (otra pestaña, sin recargar) los botones quedaron deshabilitados con "El ventilador está en modo automático y no admite comandos manuales.". |
+| CV-19 | Comando directo en automático rechazado (`failed-precondition`) | Pasó | En automático, `enviarComandoVentilador` como administrador y como operador respondió 400 `FAILED_PRECONDITION` "El ventilador está configurado en modo automático y no admite comandos manuales." y no se creó ninguna orden. |
+| CV-20 | Cambio de modo habilita los botones sin recargar | Pasó | Con dos pestañas: al guardar Manual los botones de la pestaña del panel se habilitaron y desapareció el texto de motivo sin recargar; luego mostró "Mixto". En modo Manual la regla se conservó (60/30, mismo `actualizadoEn`) y el formulario mostró la nota de que la regla guardada no cambia. |
+| CV-21 | Avance de la orden sin recargar | Pasó | Un observador de DOM registró sin recargar: botón "Enviando...", Pendiente, Enviando (~25-50 ms), Enviada, chip "Encendido" y "Ejecutada", todo en ~180 ms. La orden tiene `enviadaEn` y `actualizadaEn` y el log del servicio muestra la publicación y la ejecución. El estado `enviando` sí se pudo observar (H-07, plan corregido). |
+| CV-22 | "Pendiente" visible con el servicio detenido | Pasó | Con el servicio detenido la orden quedó "Pendiente" ("En cola, esperando su envío al ventilador.") como distintivo informativo, con los botones deshabilitados y "Hay una orden en curso; espere a que termine para enviar otra."; en Firestore `pendiente` sin `enviadaEn`. Al arrancar el servicio (~47 s) pasó sola a "Ejecutada". |
+| CV-23 | "Enviada" visible con el simulador detenido | Pasó | Con el simulador detenido la orden quedó "Enviada" ("Orden enviada; esperando la confirmación del ventilador.") como distintivo informativo y con los botones deshabilitados; en Firestore `enviada` con `enviadaEn`, y el log del servicio mostró la publicación. |
+| CV-24 | Doble clic crea una sola orden | Pasó | Con un doble clic real sobre "Encender" se creó una sola orden, tanto en VS (con simulador) como en VN (orden en curso unos 30 s). |
+| CV-25 | Orden en curso de otro usuario bloquea los botones | Pasó | Con dos navegadores reales (administrador y operador), al pulsar Encender en VN el segundo vio en ~0,1 s la orden "Enviada" y los botones de VN deshabilitados, sin recargar. |
+| CV-26 | Los botones se rehabilitan al terminar; el bloqueo es por ventilador | Pasó | La orden de VN pasó a "Fallida" a los ~33 s de `enviadaEn` y los botones de VN se rehabilitaron en el otro navegador sin recargar; la tarjeta de VS no cambió en ningún momento. |
+| CV-27 | Orden fallida (simulador detenido) y su presentación | Pasó | Con el simulador detenido, la orden pasó de "Enviada" a "Fallida" a los ~35 s de `enviadaEn`, con el bloque `message--danger` ("Fallida" y "La orden no pudo completarse. Inténtalo nuevamente.") y el motivo en el `title`. En Firestore `estado: "fallida"` y el `error` esperado; `estadoActual` no cambió y los botones se rehabilitaron. |
+| CV-28 | Orden fallida en VN sin afectar a VS | Pasó | Encender sobre VN (simulador corriendo) terminó "Fallida" a los ~33 s con VN en "Desconocido"; en el mismo lapso VS recibió su comando y llegó a "Ejecutada". |
+| CV-29 | Orden expirada (servicio detenido más de 60 s) | Pasó | Con el servicio detenido 72 s la orden pasó a "Expirada" al arrancarlo, con el bloque `message--warning`, el texto "La orden no se envió a tiempo y se descartó. Inténtalo nuevamente." y `error: "La orden venció: tiene 72 s y el máximo es 60 s."`. No hubo publicación en el log del servicio ni cambio en `estadoActual`. |
+| CV-30 | Orden atascada a los 120 s | Pasó | Con el servicio detenido, a ~114 s la orden seguía "Pendiente" con los botones deshabilitados; a ~120,5 s apareció el bloque "Atascada" (`message--warning`) con el texto esperado y los botones se rehabilitaron. En Firestore la orden seguía `pendiente`. |
+| CV-31 | Reenviar desde "Atascada": la vieja expira, la nueva se ejecuta | Pasó | Desde "Atascada" se pulsó Apagar de nuevo y se creó una 2.ª orden. Al arrancar el servicio la 1.ª pasó a `expirada` ("tiene 131 s y el máximo es 60 s") y la 2.ª se publicó y llegó a `ejecutada`; el panel mostró "Ejecutada" y el chip "Apagado". |
+| CV-32 | Las órdenes con error se distinguen de las en curso | Parcial | Se verificó la estructura y las variantes de clase: Pendiente y Enviada con `status--info`, Ejecutada con `status--success`, Fallida con `message--danger` y Expirada y Atascada con `message--warning`; ninguna orden en curso se renderizó como bloque de error. No se evaluó con rigor la comparación visual subjetiva del color (contraste y legibilidad). |
+| CV-33 | Ventilador inexistente: `not-found` | Pasó | `enviarComandoVentilador` con `ventiladorId: "no-existe"` respondió 404 `NOT_FOUND` "El ventilador solicitado no existe." sin crear órdenes. |
+| CV-34 | `ventiladorId` ausente o inválido | Pasó | Sin `ventiladorId`, con `""` y con `123` la función respondió 400 `INVALID_ARGUMENT` "El ventiladorId es obligatorio.". Un id con formato inválido como `"a/b"` no está cubierto por el caso y da `INTERNAL` (H-01). |
+| CV-35 | Acción inválida | Pasó | Con `prender`, `""`, `establecer_velocidad` y sin el campo, las cuatro llamadas respondieron 400 `INVALID_ARGUMENT` `accionSolicitada debe ser "encender" o "apagar".` sin crear órdenes. |
+| CV-36 | Modo de control inválido en el documento | Pasó | Con `modoControl: "turbo"` y con el campo borrado, la función respondió 400 `FAILED_PRECONDITION` "El modo de control del ventilador no permite comandos manuales." y la tarjeta deshabilitó los botones con el mismo texto; la tarjeta muestra el valor crudo ("Turbo") o "-" (H-04). Se restauró `manual`. |
+| CV-37 | Ventilador sin incubadora o dispositivo asociado | Pasó | Quitando `incubadoraId` y luego `dispositivoId` de VN, la función respondió 400 `FAILED_PRECONDITION` "El ventilador no tiene incubadora o dispositivo asociado, por lo que no se puede enviar el comando." en ambos casos y no creó órdenes. Se restauraron los campos. |
+| CV-38 | Estado MQTT con payload inválido rechazado | Pasó | Con el payload `{"encendido": "true"}` el log del servicio mostró "Estado de ventilador rechazado (...): encendido debe ser booleano." y `estadoActual` y `actualizadoEn` no cambiaron. |
+| CV-39 | Estado reportado a mano cierra la orden `enviada` coincidente | Pasó | Con el simulador detenido la orden quedó "Enviada". Al publicar a mano `{"encendido": true}` a los ~10 s, `estadoActual` pasó a `"encendido"` y la orden a `ejecutada` con `ejecutadaEn`; el panel mostró "Ejecutada" y "Encendido". |
+| CV-40 | Estado que no coincide no cierra la orden | Pasó | Al publicar `{"encendido": false}` con una orden `encender` enviada, `estadoActual` pasó a `"apagado"` y la orden siguió `enviada` (el log dice que ninguna orden enviada lo pedía); a los 30-40 s pasó a `fallida`. |
+| CV-41 | Administrador accede y ve el enlace de configuración | Pasó | Como administrador, `/ventiladores` mostró el panel completo y las dos tarjetas de la incubadora tenían el enlace "Configurar modo y automatización". |
+| CV-42 | Operador accede sin el enlace de configuración | Pasó | Como operador, `/ventiladores` mostró el panel con los botones funcionales y 0 enlaces "Configurar modo y automatización" en las tarjetas. |
+| CV-43 | Consulta redirigido a `/sin-autorizacion` | Pasó | Como consulta, `/ventiladores` redirigió a `/sin-autorizacion` ("Acceso no autorizado", "No tienes permisos para acceder a esta sección." y "Volver al panel general") sin mostrar el panel. |
+| CV-44 | Consulta sin permiso de ventiladores (menú) | Pasó | `ROLE_PERMISSIONS` de consulta no incluye `ver_ventiladores` ni `controlar_ventiladores` (`frontend/src/utils/constants.js`, líneas 605-614). El `Sidebar` ya está montado, así que la parte visual se verificó: el menú de consulta muestra solo "Panel general" e "Incubadoras", sin "Ventiladores". |
+| CV-45 | Sin sesión redirige a `/login` | Pasó | Sin sesión, `/ventiladores` redirigió a `/login`. |
+| CV-46 | Formulario de reglas solo para el administrador | Pasó | En `/ventiladores/automatizacion`, operador y consulta redirigieron a `/sin-autorizacion` ("Acceso no autorizado") y sin sesión a `/login`. |
+| CV-47 | `consulta` rechazado en `enviarComandoVentilador` | Pasó | Como consulta, `enviarComandoVentilador` respondió 403 `PERMISSION_DENIED` "Solo un administrador u operador puede enviar comandos a un ventilador." sin crear órdenes. |
+| CV-48 | Sin sesión rechazado en `enviarComandoVentilador` | Pasó | Sin cabecera `Authorization`, la función respondió 401 `UNAUTHENTICATED` "Debes iniciar sesión para realizar esta acción." sin crear órdenes. |
+| CV-49 | Administrador y operador llaman a la función directamente | Pasó | Administrador y operador, con `encender` y `apagar` por llamada directa: las cuatro respondieron 200 `ok: true` con `ordenId` y "Orden de ventilador creada correctamente.", y las órdenes terminaron `ejecutada` con `solicitadoPor` del rol correspondiente. |
+| CV-50 | `guardarReglaAutomatizacion` rechaza a operador, consulta y sin sesión | Pasó | `guardarReglaAutomatizacion` con `{modoControl: "manual"}`: operador y consulta recibieron 403 `PERMISSION_DENIED` "Solo un administrador puede configurar la automatización de un ventilador." y sin sesión 401 `UNAUTHENTICATED`; el `modoControl` de VS no cambió. |
+| CV-51 | Reglas de Firestore: sin escrituras del cliente | Pasó | Con el SDK cliente contra el emulador de Firestore y las reglas del repositorio, todas las escrituras (create, update y delete sobre `ordenes_ventilador`, `ventiladores` y `reglas_automatizacion`) de los tres roles fueron rechazadas con `permission-denied`; la lectura (get y list) fue permitida a los tres, incluido consulta. Sin sesión se rechazó todo. Con el Admin SDK se confirmó que no se escribió nada. |
+| CV-52 | Selector de incubadora | Pasó | El selector listó las tres incubadoras activas y no la inactiva; cada una mostró solo sus ventiladores y sus órdenes. No se capturó el texto transitorio "Cargando ventiladores..." (dura milisegundos). |
+| CV-53 | Bloqueo independiente por ventilador | Pasó | Con la orden de VN "Enviada" (botones de VN deshabilitados), Encender en VS se aceptó y llegó a "Ejecutada" en menos de 1 s: el bloqueo es por ventilador. |
+
+### Hallazgos de la ejecución
+
+Defectos y fricciones que dejó la ejecución local y que afectan a este plan.
+Ninguno hizo fallar un caso. **Todos están pendientes de corrección** (esta
+documentación no los arregla).
+
+| ID | Qué se observó | Impacto | Estado |
+| -- | -------------- | ------- | ------ |
+| H-01 | `enviarComandoVentilador` responde `INTERNAL` (HTTP 500) cuando `ventiladorId` no es un id de documento válido (`"a/b"`, `"."`, `".."`, `"__x__"`); en el log aparece un error no controlado de Firestore sobre la ruta del documento. Con un id válido que no existe sí responde `not-found`. `guardarReglaAutomatizacion` ya valida esos ids y responde `invalid-argument` (AU-13). | Baja. No se crea ninguna orden, pero el cliente recibe un error genérico y se registra un error no controlado. Ni CV-33 ni CV-34 cubren estos ids. | Pendiente de corrección. Al corregirlo, agregar un caso (por ejemplo, CV-34 con `"a/b"`). |
+| H-02 | `frontend/.env` y `functions/.secret.local` no están ignorados por git. El plan (0.5) indica crear `frontend/.env`. | Baja. Un commit accidental de esos archivos. En la ejecución se usó `frontend/.env.local`, que sí está ignorado. | Pendiente de corrección. |
+| H-03 | Con `firebase-tools` 15.28.2 y `firebase-admin` 12.7.0, el emulador de Functions deja `admin.firestore.FieldValue` en `undefined` y toda función que escribe con `serverTimestamp()` falla con `INTERNAL`. En producción no ocurre. | Info. Hace falta un workaround local para ejecutar el plan en emuladores (ver `docs/pruebas/ejecucion-local-emuladores.md`). | Pendiente de corrección en el código (importar `FieldValue` y `Timestamp` desde `firebase-admin/firestore`). |
+| H-04 | Un `modoControl` inválido o ausente se muestra tal cual en la tarjeta: "Modo de control: Turbo" con `"turbo"` y "-" con el campo borrado (CV-36). Los botones sí se deshabilitan con el texto correcto. | Menor. Podría mostrarse "Modo desconocido". | Pendiente de corrección. |
+| H-05 | El alta de dispositivos (`/incubadoras/<id>/editar`) informa solo el `identificadorMqtt`, no el id del documento de `dispositivos/`. Ese id es el que piden el simulador (`SIMULADOR_VENTILADOR_ID`, `SIMULADOR_SENSOR_ID`), los tópicos MQTT y este plan (0.3, CV-01). | Menor. Hay que leerlo de Firestore, lo que es una fricción operativa. | Pendiente de corrección. |
+
+Los identificadores H-nn son los de la ejecución y se mantienen iguales en
+`docs/pruebas/plan-pruebas-automatizacion.md`. Además, la ejecución encontró
+dos desviaciones del plan, que **ya se corrigieron en este documento**:
+
+- **H-06.** El `Sidebar` sí está montado (`DashboardLayout.jsx` lo incluye):
+  se actualizaron 0.5 y CV-44, cuya parte visual ya no queda "Bloqueada".
+- **H-07.** El estado `enviando` sí es observable en el panel: se actualizaron
+  0.6 y CV-21.
 
 ## Notas
 
-- **Plan documentado; ejecución pendiente (requiere Firebase y broker
-  reales).** Ningún caso fue ejecutado al redactar este documento; no hay
-  resultados ni evidencias que reportar todavía.
+- **Ejecución local, no real.** El plan se ejecutó el 2026-10-18 en un entorno
+  local (ver el recuadro de estado al inicio): sus resultados no sustituyen una
+  pasada contra Firebase y HiveMQ Cloud reales, que sigue pendiente.
 - El caso CV-51 puede ejecutarse con el simulador de reglas de la consola de
-  Firebase o con el emulador de Firestore. Los casos de las secciones 7 y 8 que
-  solo llaman a las funciones y comprueban el rechazo (sin que la orden llegue
-  a publicarse) pueden ejecutarse con el emulador de Functions; los que
-  dependen del Servicio de Integración y del broker (todas las órdenes que
-  deben llegar a `enviada`, `ejecutada`, `fallida` o `expirada`) requieren el
-  entorno real.
+  Firebase o con el emulador de Firestore (así se hizo). Los casos de las
+  secciones 7 y 8 que solo llaman a las funciones y comprueban el rechazo
+  pueden ejecutarse con el emulador de Functions; los que dependen del Servicio
+  de Integración y del broker (todas las órdenes que deben llegar a `enviada`,
+  `ejecutada`, `fallida` o `expirada`) necesitan un broker, que en la ejecución
+  local fue uno propio y no HiveMQ Cloud.
 - `docs/contrato-mqtt.md` describe los tópicos con el prefijo `mtpa/`, pero el
   valor efectivo es el de `MQTT_TOPIC_PREFIX` (`mtpa-dev` por defecto).
 - **Qué mira el panel y qué no.** El panel no consulta la cantidad de
