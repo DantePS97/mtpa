@@ -23,6 +23,7 @@
 
 const path = require("path");
 const admin = require("firebase-admin");
+const { FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { cargarVariablesDeEntorno } = require("./lib/env");
 const { conectarCliente } = require("./lib/mqtt-client");
 const { crearRastreadorConexion } = require("./lib/estado-conexion");
@@ -141,8 +142,8 @@ const rastreadorConexion = crearRastreadorConexion({
       10
     ),
   },
-  FieldValue: admin.firestore.FieldValue,
-  Timestamp: admin.firestore.Timestamp,
+  FieldValue,
+  Timestamp,
 });
 
 // =========================================================
@@ -931,7 +932,7 @@ async function marcarOrden(ordenRef, estado, campos = {}) {
   await ordenRef.update({
     ...campos,
     estado,
-    actualizadaEn: admin.firestore.FieldValue.serverTimestamp(),
+    actualizadaEn: FieldValue.serverTimestamp(),
   });
 }
 
@@ -1007,7 +1008,7 @@ function transicionarOrden(ordenRef, desde, hasta, campos = {}) {
     transaccion.update(ordenRef, {
       ...campos,
       estado: hasta,
-      actualizadaEn: admin.firestore.FieldValue.serverTimestamp(),
+      actualizadaEn: FieldValue.serverTimestamp(),
     });
 
     return snapshot.data();
@@ -1205,7 +1206,7 @@ async function procesarEstadoVentilador(contexto, payload) {
 
   await ventiladorRef.update({
     estadoActual: estado,
-    actualizadoEn: admin.firestore.FieldValue.serverTimestamp(),
+    actualizadoEn: FieldValue.serverTimestamp(),
   });
 
   console.log(
@@ -1275,7 +1276,7 @@ async function cerrarOrdenEnCurso(ventiladorId, estado) {
     ordenDoc.ref,
     ESTADO_ORDEN.ENVIADA,
     ESTADO_ORDEN.EJECUTADA,
-    { ejecutadaEn: admin.firestore.FieldValue.serverTimestamp() }
+    { ejecutadaEn: FieldValue.serverTimestamp() }
   );
 
   if (!orden) {
@@ -1594,7 +1595,7 @@ async function enviarOrdenReclamada(ordenRef, orden, cliente) {
       ordenRef,
       ESTADO_ORDEN.ENVIANDO,
       ESTADO_ORDEN.ENVIADA,
-      { enviadaEn: admin.firestore.FieldValue.serverTimestamp() }
+      { enviadaEn: FieldValue.serverTimestamp() }
     );
   } catch (error) {
     await marcarOrdenFallida(

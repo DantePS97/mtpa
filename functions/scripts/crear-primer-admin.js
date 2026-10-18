@@ -40,6 +40,7 @@
  */
 
 const admin = require("firebase-admin");
+const { FieldValue } = require("firebase-admin/firestore");
 
 const ROL_ADMINISTRADOR = "administrador";
 const COLECCION_USUARIOS = "usuarios";
@@ -111,7 +112,7 @@ const main = async () => {
         correo: email,
         rol: ROL_ADMINISTRADOR,
         activo: true,
-        creadoEn: admin.firestore.FieldValue.serverTimestamp(),
+        creadoEn: FieldValue.serverTimestamp(),
       },
       { merge: true }
     );
