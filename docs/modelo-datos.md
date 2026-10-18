@@ -463,9 +463,15 @@ ese campo no suma.
 
 ### Zona horaria del día
 
-El corte de «día» usa la zona `America/Bogota` por defecto. Es un supuesto
-todavía no confirmado con el equipo; puede cambiarse con la variable de entorno
-`PROJECT_TIME_ZONE` (valor de la base de datos de zonas horarias de IANA).
+El corte de «día» usa la zona `America/Bogota` (UTC−5, sin horario de verano).
+La zona fue confirmada por el responsable del proyecto el 2026-10-18. Puede
+cambiarse con la variable de entorno `PROJECT_TIME_ZONE` (valor de la base de
+datos de zonas horarias de IANA).
+
+Cambiarla con datos ya calculados no recalcula el pasado: los documentos de
+`estadisticas_diarias` ya escritos conservan el día con el que se generaron, y
+el id (`{incubadoraId}_{variable}_{fecha}`) incluye esa fecha. Si algún día se
+cambia la zona, hay que regenerar las estadísticas históricas.
 
 ## Notas generales
 
