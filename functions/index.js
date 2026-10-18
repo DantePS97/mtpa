@@ -94,29 +94,60 @@ function requireRole(context, roles, mensajeError) {
   }
 }
 
+// Tamaño máximo (en bytes UTF-8) de un id de documento de Firestore.
+const MAX_BYTES_ID_DOCUMENTO = 1500;
+
+/**
+ * Helper compartido: indica si un valor recibido del cliente sirve como
+ * id de documento de Firestore.
+ *
+ * Reúne las restricciones de Firestore para los ids: string no vacío,
+ * sin "/", distinto de "." y "..", sin la forma reservada "__...__"
+ * (se usa [\s\S] y no "." para que también cruce saltos de línea), de
+ * hasta 1500 bytes en UTF-8 y bien formado (sin sustitutos UTF-16
+ * sueltos, que no se pueden codificar en UTF-8).
+ *
+ * @param {*} id
+ * @returns {boolean}
+ */
+function esIdDocumentoValido(id) {
+  return (
+    typeof id === "string" &&
+    id.length > 0 &&
+    !id.includes("/") &&
+    id !== "." &&
+    id !== ".." &&
+    !/^__[\s\S]*__$/.test(id) &&
+    id.isWellFormed() &&
+    Buffer.byteLength(id, "utf8") <= MAX_BYTES_ID_DOCUMENTO
+  );
+}
+
+/**
+ * Helper compartido: exige que un id recibido del cliente sea válido
+ * como id de documento de Firestore (ver esIdDocumentoValido).
+ *
+ * Sin este chequeo, un id así llegaría a `.doc(id)` y se devolvería
+ * como un error interno. Debe llamarse DESPUÉS de las validaciones de
+ * sesión, rol, presencia y tipo, y ANTES de tocar Firestore.
+ *
+ * @param {*} id
+ * @param {string} mensaje Mensaje del error "invalid-argument".
+ */
+function validarIdDocumento(id, mensaje) {
+  if (!esIdDocumentoValido(id)) {
+    throw new functions.https.HttpsError("invalid-argument", mensaje);
+  }
+}
+
 /**
  * Helper compartido: exige que el ventiladorId recibido del cliente
  * tenga un formato válido como id de documento de Firestore.
  *
- * Firestore no admite "/", "." ni ".." ni ids con la forma "__...__";
- * sin este chequeo llegarían a `.doc(ventiladorId)` y se devolverían
- * como un error interno. Debe llamarse DESPUÉS de comprobar que
- * ventiladorId es un string no vacío y ANTES de tocar Firestore.
- *
  * @param {string} ventiladorId
  */
 function validarFormatoVentiladorId(ventiladorId) {
-  if (
-    ventiladorId.includes("/") ||
-    ventiladorId === "." ||
-    ventiladorId === ".." ||
-    /^__.*__$/.test(ventiladorId)
-  ) {
-    throw new functions.https.HttpsError(
-      "invalid-argument",
-      "El ventiladorId no es válido."
-    );
-  }
+  validarIdDocumento(ventiladorId, "El ventiladorId no es válido.");
 }
 
 /**
@@ -428,6 +459,10 @@ exports.gestionarIncubadora = functions.https.onCall(async (data, context) => {
     );
   }
 
+  // Se usa como id de documento: se valida el formato después de las
+  // demás validaciones de entrada y antes de tocar Firestore.
+  validarIdDocumento(data.id, "El id de la incubadora no es válido.");
+
   // Se valida que la incubadora exista ANTES de escribir en ediciones,
   // mismo patrón que ya usa "gestionarUsuario" (evita documentos
   // huérfanos / ediciones fantasma).
@@ -556,6 +591,10 @@ exports.crearDispositivo = functions.https.onCall(async (data, context) => {
         "."
     );
   }
+
+  // Se usa como id de documento: se valida el formato después de las
+  // demás validaciones de entrada y antes de tocar Firestore.
+  validarIdDocumento(incubadoraId, "El id de la incubadora no es válido.");
 
   const db = admin.firestore();
 
@@ -1287,6 +1326,16 @@ exports.procesarMedicion = functions.https.onRequest(async (req, res) => {
   // 6. Referencias Firestore
   // ---------------------------------------------------------
 
+  // dispositivoId se usa como id de documento: se valida el formato
+  // después de las demás validaciones del payload y antes de tocar
+  // Firestore (si no, `.doc()` lanzaría y la función caería sin respuesta).
+  if (!esIdDocumentoValido(dispositivoId)) {
+    return res.status(400).json({
+      ok: false,
+      error: "dispositivoId no es válido.",
+    });
+  }
+
   const db = admin.firestore();
 
   const dispositivoRef = db
@@ -1325,6 +1374,22 @@ exports.procesarMedicion = functions.https.onRequest(async (req, res) => {
       ok: false,
       error:
         "El dispositivo no pertenece a la incubadora indicada.",
+    });
+  }
+
+  // Si el dispositivo no tiene incubadora asociada, el incubadoraId del
+  // body no se contrastó con nada. evaluarUmbrales lo usa como parte del
+  // id de documento `${incubadoraId}_${variable}`, así que se valida él
+  // y esa clave compuesta antes de persistir la medición. (Con el
+  // incubadoraId ya válido, la clave solo puede fallar por superar el
+  // máximo de bytes.)
+  if (
+    !esIdDocumentoValido(incubadoraId) ||
+    !esIdDocumentoValido(`${incubadoraId}_${variable}`)
+  ) {
+    return res.status(400).json({
+      ok: false,
+      error: "incubadoraId no es válido.",
     });
   }
 
