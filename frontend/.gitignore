@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Variables de entorno (las claves web de Firebase no son secretas, pero no se versionan)
+.env
+.env.*
+!.env.example
