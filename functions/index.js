@@ -90,6 +90,31 @@ function requireRole(context, roles, mensajeError) {
 }
 
 /**
+ * Helper compartido: exige que el ventiladorId recibido del cliente
+ * tenga un formato válido como id de documento de Firestore.
+ *
+ * Firestore no admite "/", "." ni ".." ni ids con la forma "__...__";
+ * sin este chequeo llegarían a `.doc(ventiladorId)` y se devolverían
+ * como un error interno. Debe llamarse DESPUÉS de comprobar que
+ * ventiladorId es un string no vacío y ANTES de tocar Firestore.
+ *
+ * @param {string} ventiladorId
+ */
+function validarFormatoVentiladorId(ventiladorId) {
+  if (
+    ventiladorId.includes("/") ||
+    ventiladorId === "." ||
+    ventiladorId === ".." ||
+    /^__.*__$/.test(ventiladorId)
+  ) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "El ventiladorId no es válido."
+    );
+  }
+}
+
+/**
  * Genera un identificadorMqtt único para un dispositivo.
  *
  * Requisito de seguridad real del DDS: este identificador nunca
@@ -1640,6 +1665,10 @@ exports.enviarComandoVentilador = functions.https.onCall(async (data, context) =
     );
   }
 
+  // Se usa como id de documento: se valida el formato después de las
+  // demás validaciones de entrada y antes de tocar Firestore.
+  validarFormatoVentiladorId(ventiladorId);
+
   // ----------------------------------------------------------
   // 3. Verificar que el ventilador exista
   // ----------------------------------------------------------
@@ -1809,20 +1838,8 @@ exports.guardarReglaAutomatizacion = functions.https.onCall(
       );
     }
 
-    // Se usa como id de documento: Firestore no admite "/", "." ni ".."
-    // ni ids con la forma "__...__"; sin este chequeo llegarían como
-    // un error interno.
-    if (
-      ventiladorId.includes("/") ||
-      ventiladorId === "." ||
-      ventiladorId === ".." ||
-      /^__.*__$/.test(ventiladorId)
-    ) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "El ventiladorId no es válido."
-      );
-    }
+    // Se usa como id de documento: ver validarFormatoVentiladorId.
+    validarFormatoVentiladorId(ventiladorId);
 
     if (!MODOS_CONTROL_VALIDOS.includes(modoControl)) {
       throw new functions.https.HttpsError(
