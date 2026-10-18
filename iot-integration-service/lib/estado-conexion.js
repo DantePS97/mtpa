@@ -135,7 +135,7 @@ function crearRastreadorConexion({
   ahora = () => Date.now(),
   config = {},
   logger = console,
-  FieldValue = require("firebase-admin").firestore.FieldValue,
+  FieldValue = require("firebase-admin/firestore").FieldValue,
   Timestamp = null,
 }) {
   const timeoutMs =
@@ -205,7 +205,7 @@ function crearRastreadorConexion({
   }
 
   function obtenerTimestamp() {
-    return Timestamp || require("firebase-admin").firestore.Timestamp;
+    return Timestamp || require("firebase-admin/firestore").Timestamp;
   }
 
   /**

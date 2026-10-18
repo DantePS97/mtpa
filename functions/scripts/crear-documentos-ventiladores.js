@@ -49,6 +49,7 @@
 
 const fs = require("fs");
 const admin = require("firebase-admin");
+const { FieldValue } = require("firebase-admin/firestore");
 const { construirDocumentoVentilador } = require("../lib/ventilador");
 
 const COLECCION_DISPOSITIVOS = "dispositivos";
@@ -185,7 +186,7 @@ const main = async () => {
           construirDocumentoVentilador({
             incubadoraId,
             dispositivoId: id,
-            creadoEn: admin.firestore.FieldValue.serverTimestamp(),
+            creadoEn: FieldValue.serverTimestamp(),
           })
         );
       });

@@ -1,5 +1,10 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+// FieldValue y Timestamp se importan del submódulo modular y no se leen de
+// `admin.firestore.*`: el emulador de Functions envuelve `firebase-admin` en
+// un Proxy y las propiedades estáticas de `admin.firestore` quedan
+// `undefined`.
+const { FieldValue, Timestamp } = require("firebase-admin/firestore");
 const crypto = require("crypto");
 const { construirDocumentoVentilador } = require("./lib/ventilador");
 
@@ -85,6 +90,31 @@ function requireRole(context, roles, mensajeError) {
     throw new functions.https.HttpsError(
       "permission-denied",
       mensajeError || "No tenés permisos suficientes para realizar esta acción."
+    );
+  }
+}
+
+/**
+ * Helper compartido: exige que el ventiladorId recibido del cliente
+ * tenga un formato válido como id de documento de Firestore.
+ *
+ * Firestore no admite "/", "." ni ".." ni ids con la forma "__...__";
+ * sin este chequeo llegarían a `.doc(ventiladorId)` y se devolverían
+ * como un error interno. Debe llamarse DESPUÉS de comprobar que
+ * ventiladorId es un string no vacío y ANTES de tocar Firestore.
+ *
+ * @param {string} ventiladorId
+ */
+function validarFormatoVentiladorId(ventiladorId) {
+  if (
+    ventiladorId.includes("/") ||
+    ventiladorId === "." ||
+    ventiladorId === ".." ||
+    /^__.*__$/.test(ventiladorId)
+  ) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "El ventiladorId no es válido."
     );
   }
 }
@@ -206,7 +236,7 @@ exports.gestionarUsuario = functions.https.onCall(async (data, context) => {
         correo: data.correo,
         rol: data.rol,
         activo: true,
-        creadoEn: admin.firestore.FieldValue.serverTimestamp(),
+        creadoEn: FieldValue.serverTimestamp(),
       });
 
     return { uid: usuarioAuth.uid };
@@ -384,7 +414,7 @@ exports.gestionarIncubadora = functions.https.onCall(async (data, context) => {
       nombre: data.nombre,
       ubicacion: data.ubicacion,
       estado,
-      creadoEn: admin.firestore.FieldValue.serverTimestamp(),
+      creadoEn: FieldValue.serverTimestamp(),
     });
 
     return { id: referencia.id };
@@ -559,7 +589,7 @@ exports.crearDispositivo = functions.https.onCall(async (data, context) => {
     identificadorMqtt,
     estadoConexion: "desconocido",
     ultimaComunicacionEn: null,
-    creadoEn: admin.firestore.FieldValue.serverTimestamp(),
+    creadoEn: FieldValue.serverTimestamp(),
   };
 
   if (data.tipo === "ventilador") {
@@ -575,7 +605,7 @@ exports.crearDispositivo = functions.https.onCall(async (data, context) => {
       construirDocumentoVentilador({
         incubadoraId,
         dispositivoId: referencia.id,
-        creadoEn: admin.firestore.FieldValue.serverTimestamp(),
+        creadoEn: FieldValue.serverTimestamp(),
       })
     );
 
@@ -728,7 +758,7 @@ async function evaluarUmbrales(medicion) {
     alertasPorResolver.forEach((alertaDoc) => {
       batch.update(alertaDoc.ref, {
         estado: "resuelta",
-        resueltaEn: admin.firestore.FieldValue.serverTimestamp(),
+        resueltaEn: FieldValue.serverTimestamp(),
         resueltaPor: "sistema",
         valorResolucion: valor,
       });
@@ -777,7 +807,7 @@ async function evaluarUmbrales(medicion) {
       `La ${variable} registró ${valor} ${unidad}, ${posicion} de ` +
       `${limite} ${unidad}.`,
     medidoEn,
-    creadaEn: admin.firestore.FieldValue.serverTimestamp(),
+    creadaEn: FieldValue.serverTimestamp(),
   });
 
   return { alertaCreada: true, alertaId: alertaRef.id, alertasResueltas };
@@ -1037,7 +1067,7 @@ async function evaluarReglaAutomatizacion(db, reglaDoc, valor) {
         .limit(ORDENES_RECIENTES_DEDUPLICACION)
     );
 
-    const ahoraMs = admin.firestore.Timestamp.now().toMillis();
+    const ahoraMs = Timestamp.now().toMillis();
 
     if (hayOrdenQueBloquea(ordenesRecientes.docs, accionSolicitada, ahoraMs)) {
       return null;
@@ -1051,7 +1081,7 @@ async function evaluarReglaAutomatizacion(db, reglaDoc, valor) {
       origen: "automatico",
       estado: "pendiente",
       solicitadoPor: "sistema",
-      creadaEn: admin.firestore.FieldValue.serverTimestamp(),
+      creadaEn: FieldValue.serverTimestamp(),
     });
 
     return ordenRef.id;
@@ -1235,14 +1265,13 @@ exports.procesarMedicion = functions.https.onRequest(async (req, res) => {
       });
     }
 
-    medidoEnTimestamp =
-      admin.firestore.Timestamp.fromDate(fecha);
+    medidoEnTimestamp = Timestamp.fromDate(fecha);
   } else if (
     typeof medidoEn === "object" &&
     medidoEn !== null &&
     typeof medidoEn._seconds === "number"
   ) {
-    medidoEnTimestamp = new admin.firestore.Timestamp(
+    medidoEnTimestamp = new Timestamp(
       medidoEn._seconds,
       medidoEn._nanoseconds || 0
     );
@@ -1303,7 +1332,7 @@ exports.procesarMedicion = functions.https.onRequest(async (req, res) => {
   // 9. Persistir medición y actualizar dispositivo
   // ---------------------------------------------------------
 
-  const ahora = admin.firestore.Timestamp.now();
+  const ahora = Timestamp.now();
 
   const medicion = {
     incubadoraId,
@@ -1640,6 +1669,10 @@ exports.enviarComandoVentilador = functions.https.onCall(async (data, context) =
     );
   }
 
+  // Se usa como id de documento: se valida el formato después de las
+  // demás validaciones de entrada y antes de tocar Firestore.
+  validarFormatoVentiladorId(ventiladorId);
+
   // ----------------------------------------------------------
   // 3. Verificar que el ventilador exista
   // ----------------------------------------------------------
@@ -1725,7 +1758,7 @@ exports.enviarComandoVentilador = functions.https.onCall(async (data, context) =
     origen: "manual",
     estado: "pendiente",
     solicitadoPor: context.auth.uid,
-    creadaEn: admin.firestore.FieldValue.serverTimestamp(),
+    creadaEn: FieldValue.serverTimestamp(),
   });
 
   // ----------------------------------------------------------
@@ -1809,20 +1842,8 @@ exports.guardarReglaAutomatizacion = functions.https.onCall(
       );
     }
 
-    // Se usa como id de documento: Firestore no admite "/", "." ni ".."
-    // ni ids con la forma "__...__"; sin este chequeo llegarían como
-    // un error interno.
-    if (
-      ventiladorId.includes("/") ||
-      ventiladorId === "." ||
-      ventiladorId === ".." ||
-      /^__.*__$/.test(ventiladorId)
-    ) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "El ventiladorId no es válido."
-      );
-    }
+    // Se usa como id de documento: ver validarFormatoVentiladorId.
+    validarFormatoVentiladorId(ventiladorId);
 
     if (!MODOS_CONTROL_VALIDOS.includes(modoControl)) {
       throw new functions.https.HttpsError(
@@ -1946,7 +1967,7 @@ exports.guardarReglaAutomatizacion = functions.https.onCall(
         umbralActivacion,
         margenHisteresis,
         activa,
-        actualizadoEn: admin.firestore.FieldValue.serverTimestamp(),
+        actualizadoEn: FieldValue.serverTimestamp(),
         actualizadoPor: context.auth.uid,
       });
     }
