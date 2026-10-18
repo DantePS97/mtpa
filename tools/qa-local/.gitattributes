@@ -1,0 +1,2 @@
+# bash no tolera CRLF: sin esto, en Windows con core.autocrlf=true "source entorno.sh" falla.
+*.sh text eol=lf

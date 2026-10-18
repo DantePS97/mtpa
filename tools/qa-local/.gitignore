@@ -1,0 +1,5 @@
+# Credenciales, certificados y secretos del entorno local de pruebas: no versionar.
+.credenciales.local.json
+.entorno.local
+.broker/
+*-debug.log
