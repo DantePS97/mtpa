@@ -417,11 +417,61 @@ después de guardar cada medición y de evaluar los umbrales. Aplica las reglas 
   - La atomicidad se apoya en que la consulta dentro de la transacción impide
     inserciones concurrentes; no se probó contra Firestore real.
 
+## `estadisticas_diarias/{incubadoraId}_{variable}_{fecha}` (Sprint 5)
+
+Resumen de las mediciones de **un día** de una variable de una incubadora. Las
+pantallas de estadísticas (semana y mes incluidas) se arman a partir de estos
+documentos, para no leer las ~10.800 mediciones diarias por variable. Los
+escribe únicamente una Cloud Function programada con Admin SDK; el cliente solo
+los lee. Las funciones puras que calculan y combinan estos valores están en
+`functions/lib/estadisticas.js`.
+
+| Campo          | Tipo     | Descripción                                                                 |
+| -------------- | -------- | ---------------------------------------------------------------------------- |
+| `incubadoraId` | `string` | Incubadora (`incubadoras/{id}`).                                             |
+| `variable`     | `string` | `temperatura` o `humedad`.                                                   |
+| `fecha`        | `string` | Día calculado, `YYYY-MM-DD`, en la zona horaria del proyecto.                |
+| `cantidad`     | `number` | Cantidad de mediciones válidas del día. **Extensión del DDS** (ver abajo).   |
+| `promedio`     | `number` | Promedio de los valores del día.                                             |
+| `maximo`       | `number` | Valor máximo del día.                                                        |
+| `minimo`       | `number` | Valor mínimo del día.                                                        |
+| `desviacion`   | `number` | Desviación estándar **poblacional** (se divide por `cantidad`, no por n − 1). |
+| `calculadoEn`  | `timestamp` | Cuándo se calculó (server timestamp); se actualiza si se recalcula el día. |
+
+El id del documento es `{incubadoraId}_{variable}_{fecha}` (lo arma
+`idEstadisticaDiaria`), así que volver a calcular un día **reemplaza** el mismo
+documento y no crea duplicados. Un día sin mediciones no genera documento.
+
+### Por qué existe `cantidad` (extensión del DDS)
+
+El DDS define este documento sin `cantidad`. Sin ella no se puede obtener la
+estadística de una semana o un mes a partir de los días: el promedio de los
+promedios diarios es incorrecto cuando los días tienen distinta cantidad de
+mediciones (por ejemplo, un día en que el dispositivo estuvo desconectado), y el
+promedio de las desviaciones también. `combinarEstadisticas` usa `cantidad`
+como peso:
+
+- `cantidad` total `N` = suma de las `cantidad` de cada día.
+- Promedio combinado `μ` = suma de `cantidad · promedio` / `N`.
+- Varianza combinada = suma de `cantidad · (desviacion² + (promedio − μ)²)` / `N`;
+  la desviación combinada es su raíz cuadrada (poblacional, igual que la diaria).
+- Máximo y mínimo: el mayor y el menor de los días.
+
+Los documentos que no tengan una `cantidad` entera positiva se descartan al
+combinar, en silencio: conviene que quien los consuma sepa que un documento sin
+ese campo no suma.
+
+### Zona horaria del día
+
+El corte de «día» usa la zona `America/Bogota` por defecto. Es un supuesto
+todavía no confirmado con el equipo; puede cambiarse con la variable de entorno
+`PROJECT_TIME_ZONE` (valor de la base de datos de zonas horarias de IANA).
+
 ## Notas generales
 
-- Las colecciones `estadisticas_diarias`, `auditoria` y `config_sistema`
-  están enumeradas en `COLLECTIONS` para uso
-  futuro; este documento se irá completando a medida que se implementen.
+- Las colecciones `auditoria` y `config_sistema` están enumeradas en
+  `COLLECTIONS` para uso futuro; este documento se irá completando a medida que
+  se implementen.
 - Ninguna de estas colecciones debe recibir escrituras directas desde el
   cliente para datos que representen el estado real del sistema (mediciones,
   alertas, estado de dispositivos): esas escrituras las realiza el Servicio
