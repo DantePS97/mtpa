@@ -459,6 +459,10 @@ exports.gestionarIncubadora = functions.https.onCall(async (data, context) => {
     );
   }
 
+  // Se usa como id de documento: se valida el formato después de las
+  // demás validaciones de entrada y antes de tocar Firestore.
+  validarIdDocumento(data.id, "El id de la incubadora no es válido.");
+
   // Se valida que la incubadora exista ANTES de escribir en ediciones,
   // mismo patrón que ya usa "gestionarUsuario" (evita documentos
   // huérfanos / ediciones fantasma).
@@ -587,6 +591,10 @@ exports.crearDispositivo = functions.https.onCall(async (data, context) => {
         "."
     );
   }
+
+  // Se usa como id de documento: se valida el formato después de las
+  // demás validaciones de entrada y antes de tocar Firestore.
+  validarIdDocumento(incubadoraId, "El id de la incubadora no es válido.");
 
   const db = admin.firestore();
 
@@ -1318,6 +1326,16 @@ exports.procesarMedicion = functions.https.onRequest(async (req, res) => {
   // 6. Referencias Firestore
   // ---------------------------------------------------------
 
+  // dispositivoId se usa como id de documento: se valida el formato
+  // después de las demás validaciones del payload y antes de tocar
+  // Firestore (si no, `.doc()` lanzaría y la función caería sin respuesta).
+  if (!esIdDocumentoValido(dispositivoId)) {
+    return res.status(400).json({
+      ok: false,
+      error: "dispositivoId no es válido.",
+    });
+  }
+
   const db = admin.firestore();
 
   const dispositivoRef = db
@@ -1356,6 +1374,22 @@ exports.procesarMedicion = functions.https.onRequest(async (req, res) => {
       ok: false,
       error:
         "El dispositivo no pertenece a la incubadora indicada.",
+    });
+  }
+
+  // Si el dispositivo no tiene incubadora asociada, el incubadoraId del
+  // body no se contrastó con nada. evaluarUmbrales lo usa como parte del
+  // id de documento `${incubadoraId}_${variable}`, así que se valida él
+  // y esa clave compuesta antes de persistir la medición. (Con el
+  // incubadoraId ya válido, la clave solo puede fallar por superar el
+  // máximo de bytes.)
+  if (
+    !esIdDocumentoValido(incubadoraId) ||
+    !esIdDocumentoValido(`${incubadoraId}_${variable}`)
+  ) {
+    return res.status(400).json({
+      ok: false,
+      error: "incubadoraId no es válido.",
     });
   }
 
