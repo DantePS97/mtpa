@@ -15,12 +15,44 @@
  *                    sale de la banda de histéresis, orden de APAGAR.
  *   humedad-baja     humedad por debajo del mínimo -> alerta.
  *   humedad-normal   la humedad vuelve -> resuelve la alerta.
+ *   refrescar        lecturas ahora para que el panel muestre datos frescos
+ *                    (ver más abajo). Una sola incubadora.
  *   estado           resumen legible (SOLO LECTURA).
+ *   preparar         lista TODOS los dispositivos de TODAS las incubadoras con
+ *                    su estado de conexión; con --confirmar deja en
+ *                    «desconocido» los que figuran «conectado» sin
+ *                    comunicación reciente (ver más abajo).
  *
  * Es SEGURO POR DISEÑO: sin --confirmar muestra qué enviaría y no envía
  * nada. Imprime siempre el proyecto destino, exige --proyecto y, sin
  * emuladores, GOOGLE_APPLICATION_CREDENTIALS del mismo proyecto. Nunca
  * imprime tokens ni claves.
+ *
+ * REFRESCAR: el panel muestra "la última lectura" sin ningún aviso de dato
+ * viejo, así que horas después de cargar los datos la tarjeta «Última
+ * actualización» muestra la hora de la carga. "refrescar" envía lecturas
+ * ahora a UNA incubadora (A por defecto; no hay opción «todas»):
+ *   - variable SIN alertas abiertas: lecturas SANAS (temperatura ~37.4 ± 0.2,
+ *     dentro de la banda muerta de la histéresis, entre 37.0 y 38.5; humedad
+ *     ~58 ± 1.5): no crean alertas ni órdenes;
+ *   - variable CON una alerta abierta (p. ej. la B: temperatura baja y
+ *     humedad baja): lecturas COHERENTES con esa alerta (temperatura ~35.8,
+ *     humedad ~45), que refrescan la hora sin resolverla ni duplicarla.
+ * Un refresco largo (--sostener) agrega 2 lecturas por ciclo y el panel lee
+ * solo las 200 más recientes de TODA la base (medicionesRepository) y filtra
+ * por incubadora en el cliente: demasiadas lecturas de una incubadora sacan
+ * de esa ventana a las otras ("Faltan mediciones ambientales"). Por eso
+ * --sostener tiene un tope de 600 s (--sin-tope lo levanta). Después de
+ * refrescar A, refrescá también B una vez. "estado" lee las 300 más
+ * recientes.
+ *
+ * PREPARAR: el Servicio de Integración, al arrancar, carga como "conectado"
+ * todo dispositivo que figure "conectado" en Firestore; si no recibe señales
+ * en 30 s lo marca "desconectado" y crea una alerta «Dispositivo
+ * desconectado» (la incubadora pasa a «Crítico»). "preparar --confirmar" pone
+ * en «desconocido» (el valor de un dispositivo recién creado: el servicio no
+ * lo carga y el frontend muestra «Desconocido») los «conectado» con
+ * comunicación de más de 60 s. Correlo con el servicio DETENIDO.
  *
  * TIEMPOS que conviene respetar entre escenarios (ver functions/index.js):
  *
@@ -61,6 +93,14 @@ Escenarios:
   normal [incubadora]           Temperatura normal: resuelve la alerta y apaga el ventilador (histéresis).
   humedad-baja [incubadora]     Humedad bajo el mínimo: alerta.
   humedad-normal [incubadora]   Humedad normal: resuelve la alerta.
+  refrescar [incubadora]        Lecturas AHORA para que el panel muestre datos frescos. Una sola incubadora
+                                (A por defecto). Sin alertas abiertas: lecturas sanas (temp ~37.4, hum ~58).
+                                Con alertas abiertas (B): lecturas coherentes con ellas (no las resuelve ni
+                                las duplica). Con --sostener repite cada 8 s. Cortalo (Ctrl+C) ANTES de "calor".
+  preparar                      PREVIO a arrancar el Servicio de Integración: lista todos los dispositivos de
+                                todas las incubadoras con su estado de conexión y, con --confirmar, pone en
+                                «desconocido» los «conectado» sin comunicación reciente (> 60 s) para evitar
+                                una alerta falsa «Dispositivo desconectado». Correlo con el servicio detenido.
   estado [incubadora]           Resumen de lectura: últimas mediciones, alertas abiertas, ventilador y
                                 últimas 3 órdenes. SOLO LECTURA (no usa --confirmar).
 
@@ -80,7 +120,13 @@ Opciones:
                        Def.: 6.
   --valor <n>          Fuerza el valor del paso final del escenario.
   --sostener <seg>     Repite la última lectura cada --cada segundos durante <seg> segundos (o hasta
-                       Ctrl+C), como un sensor real. Útil para que el panel muestre datos "vivos".
+                       Ctrl+C), como un sensor real. Tope: 600 s (el panel lee solo las 200 lecturas más
+                       recientes de toda la base; un --sostener largo expulsa las de las otras
+                       incubadoras). --sin-tope lo levanta.
+  --sin-tope           Permite --sostener de más de 600 s.
+  --incluir-no-demo    Permite que un escenario que ESCRIBE se aplique a una incubadora cuyo nombre no
+                       lleva «(demo)» (por defecto se rechaza: protege las incubadoras reales).
+  --todas              Solo "estado": muestra todas las incubadoras, con o sin «(demo)», activas o no.
   --cada <seg>         Intervalo de --sostener (def.: 8).
   -h, --help           Esta ayuda.
 
@@ -88,8 +134,14 @@ Variables de entorno:
   GOOGLE_APPLICATION_CREDENTIALS   Clave de cuenta de servicio del proyecto (sin emuladores).
   PROCESAR_MEDICION_TOKEN          Token de procesarMedicion (escenarios que escriben).`;
 
-const ESCENARIOS_ESCRITURA = ["calor", "normal", "humedad-baja", "humedad-normal"];
-const ESCENARIOS = [...ESCENARIOS_ESCRITURA, "estado"];
+const ESCENARIOS_ESCRITURA = ["calor", "normal", "humedad-baja", "humedad-normal", "refrescar"];
+const ESCENARIOS = [...ESCENARIOS_ESCRITURA, "estado", "preparar"];
+
+// Tope por defecto de --sostener (s): ver la cabecera, sección REFRESCAR.
+const TOPE_SOSTENER_S = 600;
+
+const avisoVentana = (lecturasPorCiclo, opciones) =>
+  ` AVISO: el panel lee solo las 200 lecturas más recientes de toda la base: ${lecturasPorCiclo} por ciclo cada ${opciones.cada} s ocupan esa ventana en ${Math.round((200 / lecturasPorCiclo) * opciones.cada)} s y sacan de ella a las otras incubadoras («Faltan mediciones ambientales»). Después de refrescar, refrescá también la otra incubadora una vez.`;
 
 // =========================================================
 // CONTEXTO DE UNA INCUBADORA
@@ -301,6 +353,7 @@ async function ejecutarEscritura(ctx, escenario, incubadora, c, opciones) {
 
   if (opciones.sostener > 0) {
     console.log(` Luego repite la última lectura cada ${opciones.cada} s durante ${opciones.sostener} s (Ctrl+C para cortar).`);
+    console.log(avisoVentana(1, opciones));
   }
 
   if (!ctx.escribe) {
@@ -360,6 +413,240 @@ async function ejecutarEscritura(ctx, escenario, incubadora, c, opciones) {
   await lib.esperar(2500);
   console.log("\n Estado 2,5 s después (las órdenes del ventilador siguen su curso: volvé a pedir «estado»):");
   await imprimirEstado(ctx, incubadora, await leerMedicionesRecientes(ctx.db));
+}
+
+// =========================================================
+// REFRESCAR (lecturas ahora)
+// =========================================================
+
+async function alertasAbiertasDe(db, incubadoraId) {
+  const snap = await db.collection("alertas").where("incubadoraId", "==", incubadoraId).get();
+
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((a) => a.estado !== "resuelta" && a.variable);
+}
+
+/**
+ * Plan de refresco por variable:
+ *   - sin alertas abiertas de esa variable: lecturas SANAS (temperatura dentro
+ *     de la banda muerta de la histéresis y de los límites con margen;
+ *     humedad dentro de los límites con margen);
+ *   - con una alerta abierta: lecturas COHERENTES con ella (fuera de rango
+ *     del mismo lado), que no la resuelven ni generan otra.
+ */
+function planRefresco(c, abiertas) {
+  const t = c.umbrales.temperatura;
+  const h = c.umbrales.humedad;
+  const regla = reglaDeTemperatura(c);
+  const margenT = (t.maximo - t.minimo) * lib.MARGEN_RESOLUCION;
+  const margenH = (h.maximo - h.minimo) * lib.MARGEN_RESOLUCION;
+  const limiteApagado = regla ? Number((regla.umbralActivacion - regla.margenHisteresis).toFixed(6)) : -Infinity;
+  const bajoT = Math.max(t.minimo + margenT, limiteApagado);
+  const altoT = Math.min(t.maximo - margenT, regla ? regla.umbralActivacion : Infinity);
+  const plan = { bajoT, altoT };
+
+  const sana = {
+    temperatura: { modo: "sana", centro: lib.redondear1(regla ? bajoT + 0.4 : (t.minimo + t.maximo) / 2), amplitud: 0.2 },
+    humedad: {
+      modo: "sana",
+      centro: lib.redondear1(Math.min(Math.max(58, h.minimo + margenH + 2), h.maximo - margenH - 2)),
+      amplitud: 1.5,
+    },
+  };
+
+  if (sana.temperatura.centro - 0.2 <= bajoT || sana.temperatura.centro + 0.2 >= altoT) {
+    lib.abortar(
+      `Con los límites y la regla actuales no hay una franja de temperatura sana de ±0.2 °C (entre ${bajoT} y ${altoT}).`
+    );
+  }
+
+  for (const variable of ["temperatura", "humedad"]) {
+    const deVariable = abiertas.filter((a) => a.variable === variable);
+    const bajas = deVariable.filter((a) => String(a.tipo).endsWith("_baja"));
+    const altas = deVariable.filter((a) => String(a.tipo).endsWith("_alta"));
+
+    if (deVariable.length === 0) {
+      plan[variable] = sana[variable];
+      continue;
+    }
+
+    if (bajas.length > 0 && altas.length > 0) {
+      lib.abortar(`Hay alertas abiertas de ${variable} por arriba y por abajo a la vez: no se puede refrescar de forma coherente.`);
+    }
+
+    if (altas.length > 0 && variable === "temperatura" && regla) {
+      lib.abortar(
+        "Hay una alerta de temperatura alta abierta y el ventilador tiene regla: refrescar enviaría temperatura alta y " +
+          "podría crear órdenes del ventilador. Usá «normal» para cerrarla primero."
+      );
+    }
+
+    const lim = variable === "temperatura" ? t : h;
+    const centro =
+      bajas.length > 0
+        ? lib.redondear1(variable === "temperatura" ? lim.minimo - 0.7 : Math.max(0, lim.minimo - 5))
+        : lib.redondear1(variable === "temperatura" ? lim.maximo + 0.9 : lim.maximo + 5);
+
+    plan[variable] = {
+      modo: "coherente",
+      centro,
+      amplitud: variable === "temperatura" ? 0.1 : 0.5,
+      tipo: (bajas[0] || altas[0]).tipo,
+    };
+  }
+
+  return plan;
+}
+
+const lecturaDe = ({ centro, amplitud }) => lib.redondear1(centro + (Math.random() * 2 - 1) * amplitud);
+
+async function ejecutarRefresco(ctx, incubadora, c, opciones) {
+  const abiertas = await alertasAbiertasDe(ctx.db, incubadora.id);
+  const plan = planRefresco(c, abiertas);
+
+  console.log(`\n Refrescar «${incubadora.nombre}» (id ${incubadora.id})`);
+  console.log(" Cada ciclo envía:");
+  for (const variable of ["temperatura", "humedad"]) {
+    const p = plan[variable];
+    const sensor = sensorDe(c, variable);
+
+    console.log(
+      `   - ${variable} = ${p.centro} ± ${p.amplitud} ${lib.UNIDAD_POR_VARIABLE[variable]}  -> sensor ${sensor ? sensor.id : "(SIN SENSOR)"}  [` +
+        (p.modo === "sana"
+          ? "sana: no crea alertas ni órdenes"
+          : `coherente con la alerta abierta ${p.tipo}: no la resuelve ni la duplica`) +
+        "]"
+    );
+  }
+
+  if (plan.temperatura.modo === "sana") {
+    console.log(`   (temperatura sana: entre ${plan.bajoT} y ${plan.altoT} exclusivos, banda muerta de la histéresis)`);
+  }
+
+  for (const variable of ["temperatura", "humedad"]) {
+    if (!sensorDe(c, variable)) {
+      lib.abortar(`La incubadora no tiene un sensor de ${variable}; corré cargar-datos-demo.js.`);
+    }
+  }
+
+  if (opciones.sostener > 0) {
+    console.log(` Repite cada ${opciones.cada} s durante ${opciones.sostener} s (Ctrl+C para cortar).`);
+    console.log(avisoVentana(2, opciones));
+  }
+
+  if (!ctx.escribe) {
+    console.log("\n SIMULACRO: no se envió nada. Repetí el comando con --confirmar para enviarlo.");
+
+    return;
+  }
+
+  if (!ctx.tokenMedicion) {
+    lib.abortar("Falta la variable PROCESAR_MEDICION_TOKEN (el token de la función procesarMedicion).");
+  }
+
+  console.log("\n Enviando...");
+
+  const ids = [sensorDe(c, "temperatura").id, sensorDe(c, "humedad").id];
+
+  // Ctrl+C: conservarConexion restaura el estado de conexión y sale (código 130).
+  await lib.conservarConexion(ctx.db, ids, async () => {
+    const fin = Date.now() + opciones.sostener * 1000;
+
+    do {
+      for (const variable of ["temperatura", "humedad"]) {
+        await enviarPaso(ctx, incubadora, c, { variable }, lecturaDe(plan[variable]));
+      }
+
+      if (opciones.sostener <= 0 || Date.now() + opciones.cada * 1000 > fin) {
+        break;
+      }
+
+      await lib.esperar(opciones.cada * 1000);
+    } while (true);
+  });
+
+  await lib.esperar(2000);
+  console.log("\n Estado:");
+  await imprimirEstado(ctx, incubadora, await leerMedicionesRecientes(ctx.db));
+}
+
+// =========================================================
+// PREPARAR (previo a arrancar el Servicio de Integración)
+// =========================================================
+
+const UMBRAL_COMUNICACION_RECIENTE_MS = 60 * 1000;
+
+async function ejecutarPreparar(ctx) {
+  const { db } = ctx;
+  const incubadoras = (await db.collection("incubadoras").get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  const dispositivos = (await db.collection("dispositivos").get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  const ahora = Date.now();
+  const ms = (t) => (t && t.toMillis ? t.toMillis() : null);
+
+  console.log("\n IMPORTANTE: correlo con el Servicio de Integración DETENIDO (si no, un dispositivo vivo");
+  console.log(" puede figurar con una comunicación de más de 60 s porque el servicio la refresca cada 60 s).");
+
+  const porIncubadora = new Map();
+
+  for (const d of dispositivos) {
+    if (!porIncubadora.has(d.incubadoraId)) porIncubadora.set(d.incubadoraId, []);
+    porIncubadora.get(d.incubadoraId).push(d);
+  }
+
+  const candidatos = [];
+  const desconectados = [];
+
+  for (const [incubadoraId, lista] of [...porIncubadora.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])))) {
+    const inc = incubadoras.find((i) => i.id === incubadoraId);
+
+    console.log(`\n ${inc ? inc.nombre : "(incubadora inexistente)"}  [${inc ? inc.estado : "?"}]  id=${incubadoraId}`);
+
+    for (const d of lista) {
+      const ultima = ms(d.ultimaComunicacionEn);
+      const estado = d.estadoConexion || "desconocido";
+      const vieja = ultima === null || ahora - ultima > UMBRAL_COMUNICACION_RECIENTE_MS;
+      let marca = "";
+
+      if (estado === "conectado" && vieja) {
+        candidatos.push(d);
+        marca = "  << «conectado» SIN comunicación reciente: el servicio lo marcaría desconectado";
+      } else if (estado === "desconectado") {
+        desconectados.push(d);
+        marca = "  << desconectado: la incubadora figura «Crítico» hasta que vuelva a enviar latidos";
+      }
+
+      console.log(
+        `    - ${String(d.tipo).padEnd(19)} ${estado.padEnd(13)} última comunicación ${lib.hora(d.ultimaComunicacionEn)} ${lib.hace(d.ultimaComunicacionEn)}  id ${lib.idCorto(d.id)}${marca}`
+      );
+    }
+  }
+
+  const alertasDesconexion = (await db.collection("alertas").where("tipo", "==", "dispositivo_desconectado").get()).docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((a) => a.estado !== "resuelta");
+
+  if (alertasDesconexion.length > 0) {
+    console.log(`\n Alertas «Dispositivo desconectado» abiertas: ${alertasDesconexion.length} (las resuelve el servicio cuando el equipo vuelva a comunicarse de forma estable; este comando no las toca).`);
+  }
+
+  console.log(`\n Dispositivos «conectado» sin comunicación reciente: ${candidatos.length}`);
+
+  if (candidatos.length === 0) {
+    console.log(" Nada que preparar.");
+
+    return;
+  }
+
+  if (!ctx.escribe) {
+    console.log(" SIMULACRO: con --confirmar se pondrían en «desconocido» (no se escribió nada).");
+
+    return;
+  }
+
+  for (const d of candidatos) {
+    await db.collection("dispositivos").doc(d.id).update({ estadoConexion: "desconocido" });
+  }
+
+  console.log(` Hecho: ${candidatos.length} dispositivo(s) puestos en «desconocido». Ahora podés arrancar el Servicio de Integración.`);
 }
 
 // =========================================================
@@ -479,6 +766,9 @@ async function main() {
       valor: { type: "string" },
       sostener: { type: "string", default: "0" },
       cada: { type: "string", default: "8" },
+      "sin-tope": { type: "boolean" },
+      "incluir-no-demo": { type: "boolean" },
+      todas: { type: "boolean" },
     },
     AYUDA
   );
@@ -508,23 +798,46 @@ async function main() {
     valor: values.valor === undefined ? undefined : numero("--valor", values.valor, -50, 200),
   };
 
-  const escribe = escenario !== "estado" && Boolean(values.confirmar);
+  if (opciones.sostener > TOPE_SOSTENER_S && !values["sin-tope"]) {
+    lib.abortar(
+      `--sostener ${opciones.sostener} supera el tope de ${TOPE_SOSTENER_S} s: el panel lee solo las 200 lecturas más recientes ` +
+        "de toda la base y un refresco largo expulsa de esa ventana a las otras incubadoras. Usá --sin-tope si de verdad lo querés."
+    );
+  }
+
+  const soloLectura = escenario === "estado";
+  const escribe = !soloLectura && escenario !== "preparar" && Boolean(values.confirmar);
   const entorno = lib.validarEntorno({ proyecto: values.proyecto, region: values.region });
 
   lib.imprimirEncabezado(`M.T.P.A. - Escenario de demo: ${escenario}`, entorno, {
-    escribe,
-    soloLectura: escenario === "estado",
+    escribe: escenario === "preparar" ? Boolean(values.confirmar) : escribe,
+    soloLectura,
   });
 
   const admin = lib.iniciarAdmin(entorno);
   const db = admin.firestore();
-  const ctx = { db, entorno, escribe, tokenMedicion: process.env.PROCESAR_MEDICION_TOKEN };
+  const ctx = {
+    db,
+    entorno,
+    escribe: escenario === "preparar" ? Boolean(values.confirmar) : escribe,
+    tokenMedicion: process.env.PROCESAR_MEDICION_TOKEN,
+  };
+
+  if (escenario === "preparar") {
+    await ejecutarPreparar(ctx);
+
+    return;
+  }
 
   if (escenario === "estado") {
     let incubadoras;
 
     if (textoIncubadora) {
       incubadoras = [await lib.resolverIncubadora(db, textoIncubadora)];
+    } else if (values.todas) {
+      incubadoras = (await db.collection("incubadoras").get()).docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)));
     } else {
       const todas = (await db.collection("incubadoras").get()).docs
         .map((d) => ({ id: d.id, ...d.data() }))
@@ -549,18 +862,38 @@ async function main() {
 
   const incubadora = await lib.resolverIncubadora(db, textoIncubadora || "A");
 
+  if (!lib.esDemo(incubadora) && !values["incluir-no-demo"]) {
+    lib.abortar(
+      `La incubadora «${incubadora.nombre}» no lleva «(demo)» en el nombre: es una incubadora real y los escenarios ` +
+        "que escriben no se aplican a ella. Si de verdad querés hacerlo, agregá --incluir-no-demo."
+    );
+  }
+
   if (incubadora.estado !== "activa") {
     lib.abortar(`La incubadora «${incubadora.nombre}» está ${incubadora.estado}: no recibe escenarios.`);
   }
 
+  // PRE-VUELO (ii): el token de procesarMedicion se prueba sin escribir datos
+  // (POST {}: 400 si es válido, 403 si no). Con --confirmar aborta antes de enviar.
+  const preVuelo = lib.imprimirPreVuelo([await lib.preVueloTokenMedicion(entorno, ctx.tokenMedicion)]);
+
+  if (!preVuelo) {
+    if (escribe) {
+      lib.abortar("El pre-vuelo falló: no se envió nada.");
+    }
+
+    process.exitCode = 1;
+  }
+
   const contexto = await cargarContexto(db, incubadora);
+
+  if (escenario === "refrescar") {
+    await ejecutarRefresco(ctx, incubadora, contexto, opciones);
+
+    return;
+  }
 
   await ejecutarEscritura(ctx, escenario, incubadora, contexto, opciones);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(`\nERROR: ${error.message}`);
-    process.exit(1);
-  });
+lib.ejecutar(main);
