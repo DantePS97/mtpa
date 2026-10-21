@@ -38,7 +38,7 @@ administrador con su claim de rol (crea solo una sesión del administrador) y qu
 del proyecto, y que el token de `procesarMedicion` sea el correcto (`POST {}`: 400 si es válido,
 403 si no). Si algo falla, con `--confirmar` abortan **antes** de escribir. Los escenarios que
 escriben rechazan las incubadoras cuyo nombre no lleva «(demo)» (protege la incubadora real);
-solo se aplican a ellas con `--incluir-no-demo`.
+solo se aplican a ellas con `--incluir-no-demo` (vale para `calor`, `normal`, `humedad-*` y `refrescar`). `preparar` es la excepción documentada: actúa sobre TODAS las incubadoras y solo cambia el estado de conexión de un «conectado» viejo a «desconocido».
 
 ### 2.1 Variables (en la terminal donde corras los scripts)
 
@@ -61,14 +61,16 @@ Si exportás `PROCESAR_MEDICION_URL`, tiene que ser la de `mtpa-dev`; si no, el 
    node functions/scripts/escenario-demo.js estado --todas --proyecto mtpa-dev
    ```
 
-5. **Preparar la conexión, con el Servicio de Integración DETENIDO.** Al arrancar, el servicio carga como «conectado» todo dispositivo que figure así en Firestore; si en 30 s no recibe señales, lo marca «desconectado», crea una alerta «Dispositivo desconectado» y la incubadora queda «Crítico» (reproducido: 6 alertas falsas al reiniciar el servicio con 6 dispositivos «conectado» sin señales). `preparar` los deja en «desconocido», el valor de un dispositivo recién creado (el servicio no lo carga y la pantalla muestra «Desconocido»), solo si figuran «conectado» con más de 60 s sin comunicación:
+5. **Preparar la conexión, con el Servicio de Integración DETENIDO.** Al arrancar, el servicio carga como «conectado» todo dispositivo que figure así en Firestore (sin mirar la fecha); si en 30 s no recibe señales, lo marca «desconectado», crea una alerta «Dispositivo desconectado» y la incubadora queda «Crítico» (reproducido: 6 alertas falsas al reiniciar el servicio con 6 dispositivos «conectado» sin señales). `preparar` los deja en «desconocido», el valor de un dispositivo recién creado (el servicio no lo carga y la pantalla muestra «Desconocido»), solo si figuran «conectado» con más de **150 s** sin comunicación (el servicio solo refresca esa fecha cada 60 s, así que un dispositivo vivo tiene entre 0 y ~68 s):
 
    ```bash
    node functions/scripts/escenario-demo.js preparar --proyecto mtpa-dev              # simulacro: solo lista
    node functions/scripts/escenario-demo.js preparar --proyecto mtpa-dev --confirmar
    ```
 
-   También lista los dispositivos «desconectado» (la incubadora figura «Crítico» hasta que vuelvan a enviar latidos) y las alertas de desconexión abiertas; esas no las toca.
+   Si hay dispositivos «conectado» con menos de 90 s de comunicación avisa «el Servicio de Integración parece estar activo: detenelo antes de preparar» y, con `--confirmar`, se niega salvo que agregues `--aunque-el-servicio-este-activo`. **Tras cualquier corrida interrumpida** (Ctrl+C o caída de los scripts), esperá unos 150 s y corré `preparar --confirmar` antes de arrancar el servicio.
+
+   `preparar` también lista los dispositivos «desconectado» y las alertas de desconexión abiertas, pero **no los corrige**: una incubadora con un dispositivo «desconectado» sigue «Crítico» hasta que vuelva a enviar latidos. Si es la incubadora real y no va a emitir, resolvé esa alerta desde la interfaz como administrador u operador o dejala (y no la muestres). Si el reloj de la notebook difiere más de ~1 min del de Firebase, «reciente» puede clasificarse mal.
 
 ### 2.3 Cargar los datos (por etapas, ANTES de arrancar el servicio)
 
@@ -83,7 +85,7 @@ node functions/scripts/cargar-datos-demo.js --proyecto mtpa-dev --admin-email <c
 node functions/scripts/cargar-datos-demo.js --proyecto mtpa-dev --admin-email <correo-del-admin-existente> --confirmar
 ```
 
-**Después de la carga definitiva no vuelvas a correr el cargador sin `--sin-historico`** (si hace falta, `--sin-historico --sin-alertas`). Aunque el script es idempotente (verificado: segunda corrida inmediata y otra 14 min después, cruzando franjas de 10 min, sin duplicar lecturas y sin tocar las alertas de B), un histórico nuevo puede alterar lo que ya está ensayado.
+**Después de la carga definitiva no vuelvas a correr el cargador sin `--sin-historico`** (con `--sin-historico --sin-alertas` no se envía nada y tampoco se toca el estado de conexión) (si hace falta, `--sin-historico --sin-alertas`). Aunque el script es idempotente (verificado: segunda corrida inmediata y otra 14 min después, cruzando franjas de 10 min, sin duplicar lecturas y sin tocar las alertas de B), un histórico nuevo puede alterar lo que ya está ensayado.
 
 Opciones útiles: `--operador-email` y `--consulta-email` (por defecto
 `operador.demo@mtpa.test` y `consulta.demo@mtpa.test`), `--help`.
@@ -133,7 +135,7 @@ dispositivos; con el simulador corriendo (latidos del ventilador) dice «Conecta
 comunicación: hace unos segundos», y sin él «Desconectado - Sin información».
 
 Como los datos se cargan con la hora de la carga, el día de la presentación hay que
-**refrescarlos** (envía lecturas ahora, pasa por la lógica real y no crea alertas ni órdenes):
+**refrescarlos** (envía lecturas ahora y pasa por la lógica real; no crea alertas ni órdenes mientras la incubadora no tenga alertas de temperatura abiertas con regla de ventilador: en ese caso `refrescar` aborta, y hay que cerrarlas antes con `normal`):
 
 ```bash
 node functions/scripts/escenario-demo.js refrescar --proyecto mtpa-dev                 # A: lecturas sanas (temp ~37.4, hum ~58)
@@ -141,8 +143,9 @@ node functions/scripts/escenario-demo.js refrescar B --proyecto mtpa-dev --confi
 node functions/scripts/escenario-demo.js refrescar --sostener 300 --proyecto mtpa-dev --confirmar   # A en vivo (Ctrl+C para cortar)
 ```
 
-- `refrescar` actúa sobre **una** incubadora (A por defecto; no existe «todas»). En A envía lecturas sanas dentro de la banda muerta de la histéresis (37.2 a 37.6 °C; humedad 56.5 a 59.5 %). En **B** envía lecturas coherentes con sus alertas abiertas (temperatura ~35.8, humedad ~45): refresca la hora **sin resolver ni duplicar** las alertas (verificado: 4 alertas antes y 4 después, sin órdenes).
+- `refrescar` actúa sobre **una** incubadora (A por defecto; no existe «todas»). En A envía lecturas sanas dentro de la banda muerta de la histéresis (37.2 a 37.6 °C; humedad 56.5 a 59.5 %). En **B** envía lecturas coherentes con sus alertas abiertas (temperatura ~35.8, humedad ~45): refresca la hora **sin resolver ni duplicar** las alertas (verificado: las mismas alertas con los mismos estados antes y después, sin órdenes).
 - `--sostener <seg>` repite cada 8 s (`--cada`) hasta cumplir el tiempo o Ctrl+C, con tope de **600 s** (`--sin-tope` lo levanta). Motivo: el panel lee solo las 200 lecturas más recientes de TODA la base y filtra por incubadora en el navegador; un refresco largo de A (2 lecturas cada 8 s: 200 en ~13 min) saca de esa ventana a la B y a la otra variable, y aparece «Faltan mediciones ambientales». Por eso, después de refrescar A, corré `refrescar B` una vez.
+- **La incubadora real del usuario.** El histórico de la demo (288 lecturas) también la saca de la ventana de 200 lecturas del panel: si abrís la incubadora real vas a ver «Faltan mediciones ambientales» y datos viejos. Si vas a mostrarla, su servicio y su sensor deben estar emitiendo (así sus lecturas son las más recientes), o directamente no la muestres. El selector «Incubadora» arranca en la primera de la lista (puede ser la real): elegí a mano «Incubadora A - Lote 1 (demo)».
 - `estado` lee las 300 lecturas más recientes (si una incubadora no aparece en ellas muestra «sin mediciones recientes»).
 
 ### 2.6 Lista de comprobación (5 minutos antes)
@@ -154,6 +157,8 @@ node functions/scripts/escenario-demo.js refrescar --sostener 300 --proyecto mtp
 - [ ] `node functions/scripts/escenario-demo.js calor --proyecto mtpa-dev` (simulacro) muestra «Incubadora A - Lote 1 (demo)»: detecta una ambigüedad de nombres antes del público.
 - [ ] Login correcto con los **tres** usuarios (usá tres ventanas de navegador distintas o una de incógnito).
 - [ ] Panel general: Incubadora A «Normal» y Incubadora B «Advertencia». **Anotá los contadores reales** (Incubadoras / Normal / Advertencia / Crítico y los del listado de alertas) y usá esos: las cifras del guion («Todas (3)», «Activas (1)», «0 Crítico»…) valen solo si la base no tiene otras incubadoras ni alertas, y la incubadora real del usuario suma las suyas.
+- [ ] **Incubadora real:** si no va a emitir en la presentación, no la abras en el panel (por la ventana de 200 lecturas vería «Faltan mediciones ambientales»). Verificá a mano que A y B muestran temperatura y humedad.
+- [ ] Si algún script se cortó (Ctrl+C o error), esperá ~150 s y corré `preparar --confirmar` antes de arrancar el servicio.
 - [ ] El selector «Incubadora» arranca en la **primera de la lista**, que puede ser la real o la B: elegí a mano «Incubadora A - Lote 1 (demo)».
 - [ ] No reinicies el Servicio de Integración después de preparar todo (ver Plan B).
 
@@ -268,7 +273,7 @@ como «preparado, falta configurar el servicio de correo».
 | No llegan lecturas / el panel no se mueve | `node functions/scripts/escenario-demo.js estado --proyecto mtpa-dev`. Un error 401/403 de `escenario-demo.js` es el token (`PROCESAR_MEDICION_TOKEN`; el PRE-VUELO lo dice). Logs de la función: `firebase functions:log --only procesarMedicion --project mtpa-dev`. Refrescá la página. |
 | «Última actualización» muestra una hora vieja | El panel no avisa de datos viejos: `escenario-demo.js refrescar --confirmar` (A) y `refrescar B --confirmar`. |
 | «Faltan mediciones ambientales» en una incubadora | Un refresco largo sacó sus lecturas de la ventana de 200 del panel: `refrescar` esa incubadora una vez. |
-| Aparecen alertas «Dispositivo desconectado» que no esperabas | Es el comportamiento real del servicio. Con `preparar` y `conservarConexion` el «conectado» falso solo se da por una corrida interrumpida (cortada sin restaurar) o por dispositivos reales de otra sesión. Corré `preparar --confirmar` con el servicio detenido antes de arrancarlo, y mientras tanto presentalo como la detección de desconexión. |
+| Aparecen alertas «Dispositivo desconectado» que no esperabas | Es el comportamiento real del servicio. Con `preparar` y con los scripts, que devuelven los sensores a su estado de conexión anterior al terminar, el «conectado» falso solo se da por una corrida interrumpida (esperá ~150 s y corré `preparar --confirmar` con el servicio detenido) o por dispositivos reales de otra sesión. Corré `preparar --confirmar` con el servicio detenido antes de arrancarlo, y mientras tanto presentalo como la detección de desconexión. |
 | Se ven alertas que no pediste | Probablemente arrancaste el simulador con `SIMULADOR_SENSOR_ID` (modo realista) o dejaste corriendo un `refrescar` sobre una incubadora con otro estado. Detenelo y arrancalo sin esa variable. |
 
 ## 6. Limpieza posterior
