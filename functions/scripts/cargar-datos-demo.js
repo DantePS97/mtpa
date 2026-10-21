@@ -496,6 +496,11 @@ async function cargarHistorico(ctx, objetivos) {
   const total = [...rondas.values()].reduce((suma, lista) => suma + lista.length, 0);
 
   for (const ms of ordenadas) {
+    if (ctx.cancelado && ctx.cancelado()) {
+      linea("Interrumpido: se cortó el envío de histórico.");
+      break;
+    }
+
     // allSettled: si una falla, las demás de la ronda terminan ANTES de que el
     // error suba (y de que se restaure el estado de conexión de los sensores).
     const resultados = await Promise.allSettled(
@@ -1069,7 +1074,12 @@ async function main() {
     .filter((d) => d && d.id)
     .map((d) => d.id);
 
-  await lib.conservarConexion(db, ctx.escribe ? idsSensores : [], async () => {
+  // Con --sin-historico --sin-alertas no se envía nada: no se toca la conexión.
+  const enviaLecturas = ctx.escribe && necesitaMediciones;
+
+  await lib.conservarConexion(db, enviaLecturas ? idsSensores : [], async (ctl) => {
+    ctx.cancelado = () => ctl.cancelado;
+
     if (values["sin-historico"]) {
       paso("5. Histórico sano (omitido por --sin-historico)");
     } else {
@@ -1088,6 +1098,8 @@ async function main() {
       await cargarHistorico(ctx, objetivos);
     }
 
+    if (ctl.cancelado) return;
+
     if (values["sin-alertas"]) {
       paso("6. Alertas de ciclo de vida (omitidas por --sin-alertas)");
     } else if (B) {
@@ -1096,7 +1108,14 @@ async function main() {
     }
   });
 
-  if (ctx.escribe && idsSensores.length > 0) {
+  if (process.exitCode === 130) {
+    console.log("\n Interrumpido con Ctrl+C: se restauró el estado de conexión de los sensores.");
+    console.log(" Esperá unos 150 s y corré «escenario-demo.js preparar --confirmar» antes de arrancar el Servicio de Integración.");
+
+    return;
+  }
+
+  if (enviaLecturas && idsSensores.length > 0) {
     linea(
       "Los sensores conservan su estado de conexión previo (los datos de relleno no son un equipo real emitiendo latidos)."
     );

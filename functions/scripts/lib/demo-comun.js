@@ -618,11 +618,19 @@ async function dispositivosDe(db, incubadoraId) {
     .sort((a, b) => marca(a) - marca(b) || a.id.localeCompare(b.id));
 }
 
-// Una comunicación más vieja que esto no cuenta como "conectado legítimo".
-const VENTANA_CONECTADO_RECIENTE_MS = 60 * 1000;
+// Un dispositivo "conectado" cuya última comunicación es más vieja que esto no
+// cuenta como vivo. El Servicio de Integración solo reescribe
+// "ultimaComunicacionEn" cada 60 s (LATIDO_REFRESCO_SEGUNDOS) y no toca
+// "estadoConexion" mientras el dispositivo sigue conectado: un dispositivo vivo
+// tiene una edad de 0 a ~68 s. 150 s deja un margen amplio. Una sola constante
+// para conservarConexion y para "preparar".
+const UMBRAL_COMUNICACION_RECIENTE_MS = 150 * 1000;
+
+// Por debajo de esto, "preparar" considera que el servicio está ACTIVO.
+const UMBRAL_SERVICIO_ACTIVO_MS = 90 * 1000;
 
 /**
- * Ejecuta `tarea` (que envía lecturas a procesarMedicion como si fueran de
+ * Ejecuta `tarea(ctl)` (que envía lecturas a procesarMedicion como si fueran de
  * ciertos sensores) y después devuelve a esos sensores el estado de conexión
  * que tenían ANTES.
  *
@@ -630,18 +638,22 @@ const VENTANA_CONECTADO_RECIENTE_MS = 60 * 1000;
  * lectura. Pero estas lecturas son de relleno o de escenario, no de un
  * equipo real emitiendo latidos. Si el sensor queda "conectado" sin latidos,
  * la próxima vez que arranque el Servicio de Integración lo carga como
- * conectado, no recibe ninguna señal y a los 30 s lo marca "desconectado" y
- * crea una alerta de desconexión (la incubadora pasa a "Crítico").
+ * conectado (sin mirar la fecha), no recibe ninguna señal y a los 30 s lo
+ * marca "desconectado" y crea una alerta de desconexión.
  *
  * Restauración:
- *   - estado previo "conectado" CON comunicación reciente (< 60 s): es un
- *     equipo vivo (simulador o real); no se toca;
+ *   - estado previo "conectado" con comunicación reciente (ver
+ *     UMBRAL_COMUNICACION_RECIENTE_MS): equipo vivo; no se toca;
  *   - estado previo "conectado" pero con comunicación vieja o sin fecha:
  *     estaba "colgado"; se restaura a "desconocido";
  *   - cualquier otro estado previo: se restaura tal cual.
- * Se ejecuta también si la tarea falla y si llega SIGINT/SIGTERM (Ctrl+C):
- * en ese caso se restaura y se sale con código 130. Un error al restaurar se
- * informa pero no tapa el error original de la tarea.
+ *
+ * Ctrl+C / SIGTERM: no corta en seco. Levanta `ctl.cancelado` (la tarea lo
+ * revisa entre envíos y debe volver pronto; `ctl.esperar` se interrumpe),
+ * se espera a que los envíos en curso terminen, se restaura y recién ahí se
+ * devuelve el control con process.exitCode = 130. Una segunda señal se ignora
+ * mientras tanto. Si la tarea no vuelve en 10 s, se restaura igual y se sale.
+ * Un error al restaurar se informa pero no tapa el error original de la tarea.
  */
 async function conservarConexion(db, dispositivoIds, tarea) {
   const antes = new Map();
@@ -654,7 +666,7 @@ async function conservarConexion(db, dispositivoIds, tarea) {
       const ultima = d.ultimaComunicacionEn && d.ultimaComunicacionEn.toMillis ? d.ultimaComunicacionEn.toMillis() : null;
       let estado = d.estadoConexion || "desconocido";
 
-      if (estado === "conectado" && !(ultima !== null && Date.now() - ultima < VENTANA_CONECTADO_RECIENTE_MS)) {
+      if (estado === "conectado" && !(ultima !== null && Date.now() - ultima < UMBRAL_COMUNICACION_RECIENTE_MS)) {
         estado = "desconocido";
       }
 
@@ -665,36 +677,65 @@ async function conservarConexion(db, dispositivoIds, tarea) {
     }
   }
 
-  let restaurado = false;
-  const restaurar = async () => {
-    if (restaurado) return;
-    restaurado = true;
+  const ctl = {
+    cancelado: false,
+    // Espera interrumpible: vuelve antes si se canceló.
+    esperar: async (ms) => {
+      const fin = Date.now() + ms;
 
-    for (const [id, previo] of antes) {
-      if (previo.conservar) continue;
-
-      try {
-        await db.collection("dispositivos").doc(id).update(previo.valores);
-      } catch (error) {
-        console.error(`AVISO: no se pudo restaurar el estado de conexión de ${id}: ${error.message}`);
+      while (!ctl.cancelado && Date.now() < fin) {
+        await esperar(Math.min(100, fin - Date.now()));
       }
+    },
+  };
+
+  let restauracion = null;
+  // Promesa compartida: idempotente y esperable.
+  const restaurar = () => {
+    if (!restauracion) {
+      restauracion = (async () => {
+        for (const [id, previo] of antes) {
+          if (previo.conservar) continue;
+
+          try {
+            await db.collection("dispositivos").doc(id).update(previo.valores);
+          } catch (error) {
+            console.error(`AVISO: no se pudo restaurar el estado de conexión de ${id}: ${error.message}`);
+          }
+        }
+      })();
     }
+
+    return restauracion;
   };
 
+  let senalada = false;
+  let vigilante = null;
   const alSenal = (senal) => {
-    console.error(`\n ${senal || "Interrupción"}: restaurando el estado de conexión de los sensores y saliendo...`);
-    restaurar().finally(() => process.exit(130));
+    if (senalada) return; // segunda señal: se ignora mientras se restaura
+
+    senalada = true;
+    ctl.cancelado = true;
+    process.exitCode = 130;
+    console.error(`\n ${senal || "Interrupción"}: cancelando; se esperan los envíos en curso y se restaura el estado de conexión...`);
+    vigilante = setTimeout(() => restaurar().finally(() => salir(130)), 10000);
   };
 
-  process.once("SIGINT", alSenal);
-  process.once("SIGTERM", alSenal);
+  process.on("SIGINT", alSenal);
+  process.on("SIGTERM", alSenal);
 
   try {
-    return await tarea();
+    return await tarea(ctl);
   } finally {
+    if (senalada) {
+      await esperar(200); // margen para escrituras que la función aún esté terminando
+    }
+
+    await restaurar();
+
+    if (vigilante) clearTimeout(vigilante);
     process.removeListener("SIGINT", alSenal);
     process.removeListener("SIGTERM", alSenal);
-    await restaurar();
   }
 }
 
@@ -758,6 +799,8 @@ module.exports = {
   resolverIncubadora,
   dispositivosDe,
   conservarConexion,
+  UMBRAL_COMUNICACION_RECIENTE_MS,
+  UMBRAL_SERVICIO_ACTIVO_MS,
   redondear1,
   hora,
   hace,

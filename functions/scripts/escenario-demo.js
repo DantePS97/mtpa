@@ -52,7 +52,9 @@
  * desconectado» (la incubadora pasa a «Crítico»). "preparar --confirmar" pone
  * en «desconocido» (el valor de un dispositivo recién creado: el servicio no
  * lo carga y el frontend muestra «Desconocido») los «conectado» con
- * comunicación de más de 60 s. Correlo con el servicio DETENIDO.
+ * comunicación de más de 150 s (el servicio solo refresca esa fecha cada 60 s).
+ * Correlo con el servicio DETENIDO. NO corrige dispositivos «desconectado»
+ * (la incubadora sigue «Crítico» hasta que vuelvan a enviar latidos).
  *
  * TIEMPOS que conviene respetar entre escenarios (ver functions/index.js):
  *
@@ -99,8 +101,11 @@ Escenarios:
                                 las duplica). Con --sostener repite cada 8 s. Cortalo (Ctrl+C) ANTES de "calor".
   preparar                      PREVIO a arrancar el Servicio de Integración: lista todos los dispositivos de
                                 todas las incubadoras con su estado de conexión y, con --confirmar, pone en
-                                «desconocido» los «conectado» sin comunicación reciente (> 60 s) para evitar
-                                una alerta falsa «Dispositivo desconectado». Correlo con el servicio detenido.
+                                «desconocido» los «conectado» sin comunicación reciente (> 150 s) para evitar
+                                una alerta falsa «Dispositivo desconectado». Correlo con el servicio detenido
+                                (si hay dispositivos con < 90 s de comunicación exige
+                                --aunque-el-servicio-este-activo). Es la excepción a «solo (demo)»: actúa
+                                sobre TODAS las incubadoras y solo cambia «conectado» viejo a «desconocido».
   estado [incubadora]           Resumen de lectura: últimas mediciones, alertas abiertas, ventilador y
                                 últimas 3 órdenes. SOLO LECTURA (no usa --confirmar).
 
@@ -124,8 +129,12 @@ Opciones:
                        recientes de toda la base; un --sostener largo expulsa las de las otras
                        incubadoras). --sin-tope lo levanta.
   --sin-tope           Permite --sostener de más de 600 s.
-  --incluir-no-demo    Permite que un escenario que ESCRIBE se aplique a una incubadora cuyo nombre no
-                       lleva «(demo)» (por defecto se rechaza: protege las incubadoras reales).
+  --incluir-no-demo    Permite que un escenario que ESCRIBE (calor, normal, humedad-*, refrescar) se aplique
+                       a una incubadora cuyo nombre no lleva «(demo)» (por defecto se rechaza: protege las
+                       incubadoras reales). "preparar" es la excepción documentada.
+  --aunque-el-servicio-este-activo
+                       Solo "preparar": permite escribir aunque haya dispositivos «conectado» con menos de
+                       90 s de comunicación (el servicio parece activo).
   --todas              Solo "estado": muestra todas las incubadoras, con o sin «(demo)», activas o no.
   --cada <seg>         Intervalo de --sostener (def.: 8).
   -h, --help           Esta ayuda.
@@ -281,6 +290,32 @@ function planDe(escenario, c, { pausa, valor }) {
 // ENVÍO
 // =========================================================
 
+// --sostener / refrescar tolerantes: un fallo aislado no corta todo; se aborta
+// recién tras MAX_CICLOS_FALLIDOS ciclos consecutivos fallidos.
+const MAX_CICLOS_FALLIDOS = 3;
+const nuevoConteo = () => ({ ok: 0, fallos: 0, consecutivos: 0 });
+
+async function cicloTolerante(conteo, fn) {
+  try {
+    await fn();
+    conteo.ok += 1;
+    conteo.consecutivos = 0;
+  } catch (error) {
+    conteo.fallos += 1;
+    conteo.consecutivos += 1;
+    console.log(`   ciclo fallido (${conteo.consecutivos}/${MAX_CICLOS_FALLIDOS}): ${error.message}`);
+
+    if (conteo.consecutivos >= MAX_CICLOS_FALLIDOS) {
+      throw new Error(`${MAX_CICLOS_FALLIDOS} ciclos consecutivos fallidos (último: ${error.message})`);
+    }
+  }
+}
+
+const resumenConteo = (conteo, ctl) =>
+  ` Fin de --sostener: ${conteo.ok} ciclo(s) enviados${conteo.fallos ? `, ${conteo.fallos} fallido(s)` : ""}${
+    ctl.cancelado ? " (interrumpido con Ctrl+C)" : ""
+  }.`;
+
 function sensorDe(c, variable) {
   return variable === "temperatura" ? c.sensorTemperatura : c.sensorHumedad;
 }
@@ -373,45 +408,45 @@ async function ejecutarEscritura(ctx, escenario, incubadora, c, opciones) {
   // su estado de conexión previo (ver lib.conservarConexion).
   const idsSensores = [...new Set(pasos.map((p) => sensorDe(c, p.variable).id))];
 
-  await lib.conservarConexion(ctx.db, idsSensores, async () => {
+  await lib.conservarConexion(ctx.db, idsSensores, async (ctl) => {
     for (const p of pasos) {
+      if (ctl.cancelado) return;
+
       await enviarPaso(ctx, incubadora, c, p, p.valor);
 
       if (p.esperaDespuesS) {
         console.log(`   ... esperando ${p.esperaDespuesS} s`);
-        await lib.esperar(p.esperaDespuesS * 1000);
+        await ctl.esperar(p.esperaDespuesS * 1000);
       }
     }
 
     const ultimo = pasos[pasos.length - 1];
 
     if (opciones.sostener > 0) {
-      let cortar = false;
-      const alCortar = () => {
-        cortar = true;
-      };
-
-      process.once("SIGINT", alCortar);
-
       const fin = Date.now() + opciones.sostener * 1000;
+      const conteo = nuevoConteo();
       let n = 1;
 
-      while (!cortar && Date.now() + opciones.cada * 1000 <= fin) {
-        await lib.esperar(opciones.cada * 1000);
+      while (!ctl.cancelado && Date.now() + opciones.cada * 1000 <= fin) {
+        await ctl.esperar(opciones.cada * 1000);
 
-        if (cortar) break;
+        if (ctl.cancelado) break;
 
-        await enviarPaso(ctx, incubadora, c, ultimo, jitter(ultimo.variable, ultimo.valor, n));
+        await cicloTolerante(conteo, () => enviarPaso(ctx, incubadora, c, ultimo, jitter(ultimo.variable, ultimo.valor, n)));
         n += 1;
       }
 
-      process.removeListener("SIGINT", alCortar);
-      console.log(" Fin de --sostener.");
+      console.log(resumenConteo(conteo, ctl));
     }
   });
 
-  await lib.esperar(2500);
-  console.log("\n Estado 2,5 s después (las órdenes del ventilador siguen su curso: volvé a pedir «estado»):");
+  if (process.exitCode === 130) {
+    console.log(" Interrumpido: se restauró el estado de conexión de los sensores.");
+  } else {
+    await lib.esperar(2500);
+  }
+
+  console.log("\n Estado (las órdenes del ventilador siguen su curso: volvé a pedir «estado»):");
   await imprimirEstado(ctx, incubadora, await leerMedicionesRecientes(ctx.db));
 }
 
@@ -473,10 +508,11 @@ function planRefresco(c, abiertas) {
       lib.abortar(`Hay alertas abiertas de ${variable} por arriba y por abajo a la vez: no se puede refrescar de forma coherente.`);
     }
 
-    if (altas.length > 0 && variable === "temperatura" && regla) {
+    if (variable === "temperatura" && regla) {
       lib.abortar(
-        "Hay una alerta de temperatura alta abierta y el ventilador tiene regla: refrescar enviaría temperatura alta y " +
-          "podría crear órdenes del ventilador. Usá «normal» para cerrarla primero."
+        "Hay una alerta de temperatura abierta y el ventilador tiene regla de automatización: una lectura coherente con " +
+          "ella (alta o baja) cae fuera de la banda muerta y podría crear órdenes del ventilador (apagar si está encendido " +
+          "o con estado desconocido, encender si es alta). Cerrala primero con «normal»."
       );
     }
 
@@ -547,24 +583,45 @@ async function ejecutarRefresco(ctx, incubadora, c, opciones) {
 
   const ids = [sensorDe(c, "temperatura").id, sensorDe(c, "humedad").id];
 
-  // Ctrl+C: conservarConexion restaura el estado de conexión y sale (código 130).
-  await lib.conservarConexion(ctx.db, ids, async () => {
-    const fin = Date.now() + opciones.sostener * 1000;
-
-    do {
+  // Ctrl+C: conservarConexion cancela, espera los envíos en curso, restaura el
+  // estado de conexión y devuelve el control (código de salida 130).
+  await lib.conservarConexion(ctx.db, ids, async (ctl) => {
+    const ciclo = async () => {
       for (const variable of ["temperatura", "humedad"]) {
         await enviarPaso(ctx, incubadora, c, { variable }, lecturaDe(plan[variable]));
       }
+    };
 
-      if (opciones.sostener <= 0 || Date.now() + opciones.cada * 1000 > fin) {
+    if (opciones.sostener <= 0) {
+      await ciclo();
+
+      return;
+    }
+
+    const fin = Date.now() + opciones.sostener * 1000;
+    const conteo = nuevoConteo();
+
+    while (true) {
+      await cicloTolerante(conteo, ciclo);
+
+      if (ctl.cancelado || Date.now() + opciones.cada * 1000 > fin) {
         break;
       }
 
-      await lib.esperar(opciones.cada * 1000);
-    } while (true);
+      await ctl.esperar(opciones.cada * 1000);
+
+      if (ctl.cancelado) break;
+    }
+
+    console.log(resumenConteo(conteo, ctl));
   });
 
-  await lib.esperar(2000);
+  if (process.exitCode === 130) {
+    console.log(" Interrumpido: se restauró el estado de conexión de los sensores.");
+  } else {
+    await lib.esperar(2000);
+  }
+
   console.log("\n Estado:");
   await imprimirEstado(ctx, incubadora, await leerMedicionesRecientes(ctx.db));
 }
@@ -572,8 +629,6 @@ async function ejecutarRefresco(ctx, incubadora, c, opciones) {
 // =========================================================
 // PREPARAR (previo a arrancar el Servicio de Integración)
 // =========================================================
-
-const UMBRAL_COMUNICACION_RECIENTE_MS = 60 * 1000;
 
 async function ejecutarPreparar(ctx) {
   const { db } = ctx;
@@ -583,7 +638,8 @@ async function ejecutarPreparar(ctx) {
   const ms = (t) => (t && t.toMillis ? t.toMillis() : null);
 
   console.log("\n IMPORTANTE: correlo con el Servicio de Integración DETENIDO (si no, un dispositivo vivo");
-  console.log(" puede figurar con una comunicación de más de 60 s porque el servicio la refresca cada 60 s).");
+  console.log(` puede figurar con una comunicación de varios segundos y parecer vivo; el servicio la refresca cada 60 s).`);
+  console.log(` Se consideran sin comunicación reciente los de más de ${lib.UMBRAL_COMUNICACION_RECIENTE_MS / 1000} s.`);
 
   const porIncubadora = new Map();
 
@@ -603,7 +659,7 @@ async function ejecutarPreparar(ctx) {
     for (const d of lista) {
       const ultima = ms(d.ultimaComunicacionEn);
       const estado = d.estadoConexion || "desconocido";
-      const vieja = ultima === null || ahora - ultima > UMBRAL_COMUNICACION_RECIENTE_MS;
+      const vieja = ultima === null || ahora - ultima > lib.UMBRAL_COMUNICACION_RECIENTE_MS;
       let marca = "";
 
       if (estado === "conectado" && vieja) {
@@ -626,6 +682,26 @@ async function ejecutarPreparar(ctx) {
 
   if (alertasDesconexion.length > 0) {
     console.log(`\n Alertas «Dispositivo desconectado» abiertas: ${alertasDesconexion.length} (las resuelve el servicio cuando el equipo vuelva a comunicarse de forma estable; este comando no las toca).`);
+  }
+
+  const vivos = dispositivos.filter((d) => {
+    const u = ms(d.ultimaComunicacionEn);
+
+    return d.estadoConexion === "conectado" && u !== null && ahora - u < lib.UMBRAL_SERVICIO_ACTIVO_MS;
+  });
+
+  if (vivos.length > 0) {
+    console.log(
+      `\n ATENCIÓN: ${vivos.length} dispositivo(s) «conectado» con menos de ${lib.UMBRAL_SERVICIO_ACTIVO_MS / 1000} s de comunicación: ` +
+        "el Servicio de Integración parece estar activo: detenelo antes de preparar."
+    );
+
+    if (ctx.escribe && !ctx.aunqueActivo) {
+      lib.abortar(
+        "No se escribió nada: el servicio parece activo. Detenelo y repetí; si estás seguro, agregá " +
+          "--aunque-el-servicio-este-activo."
+      );
+    }
   }
 
   console.log(`\n Dispositivos «conectado» sin comunicación reciente: ${candidatos.length}`);
@@ -768,6 +844,7 @@ async function main() {
       cada: { type: "string", default: "8" },
       "sin-tope": { type: "boolean" },
       "incluir-no-demo": { type: "boolean" },
+      "aunque-el-servicio-este-activo": { type: "boolean" },
       todas: { type: "boolean" },
     },
     AYUDA
@@ -820,6 +897,7 @@ async function main() {
     db,
     entorno,
     escribe: escenario === "preparar" ? Boolean(values.confirmar) : escribe,
+    aunqueActivo: Boolean(values["aunque-el-servicio-este-activo"]),
     tokenMedicion: process.env.PROCESAR_MEDICION_TOKEN,
   };
 
