@@ -80,9 +80,37 @@ const MARGEN_RESOLUCION = 0.05;
 // SALIDA Y ABORTOS
 // =========================================================
 
+class Abortado extends Error {}
+
+/**
+ * Corta la ejecución con un mensaje claro. Lanza (no llama a process.exit):
+ * en Windows, salir de golpe con conexiones del Admin SDK abiertas puede
+ * dejar el proceso con código 127 y un "Assertion failed ... async.c".
+ * `ejecutar` lo captura y sale ordenadamente.
+ */
 function abortar(mensaje) {
-  console.error(`\nABORTADO: ${mensaje}\n`);
-  process.exit(1);
+  throw new Abortado(mensaje);
+}
+
+function salir(codigo) {
+  process.exitCode = codigo;
+  // Pequeña demora para que se cierren los handles antes de salir.
+  setTimeout(() => process.exit(codigo), 300);
+}
+
+/** Ejecuta `principal` (async), imprime los errores y sale con el código correcto. */
+function ejecutar(principal) {
+  principal()
+    .then(() => salir(process.exitCode || 0))
+    .catch((error) => {
+      if (error instanceof Abortado) {
+        console.error(`\nABORTADO: ${error.message}\n`);
+      } else {
+        console.error(`\nERROR: ${error.message}`);
+      }
+
+      salir(1);
+    });
 }
 
 function esperar(ms) {
@@ -322,19 +350,21 @@ async function peticionJson(url, { metodo = "POST", cuerpo, cabeceras = {}, time
 
 /**
  * ID token del administrador SIN usar su contraseña: la cuenta de servicio
- * emite un custom token para su uid y se intercambia en Identity Toolkit
- * (accounts:signInWithCustomToken). El ID token conserva el custom claim
- * "role" del usuario; se comprueba antes de usarlo.
+ * emite un custom token para su uid (con su rol como developer claim, así
+ * el ID token lo trae seguro) y se intercambia en Identity Toolkit
+ * (accounts:signInWithCustomToken). Se comprueba que el ID token resultante
+ * traiga role=administrador antes de usarlo. Lanza Error (no aborta) para que
+ * el pre-vuelo pueda informarlo.
  */
-async function obtenerIdTokenAdmin(entorno, admin, uid, apiKey) {
+async function obtenerIdTokenAdmin(entorno, admin, uid, apiKey, role) {
   if (!apiKey) {
-    abortar(
-      "Falta la API key web de Firebase (la pública, la de VITE_FIREBASE_API_KEY): pasala con " +
-        "--api-key o exportá VITE_FIREBASE_API_KEY. Hace falta para actuar como administrador."
+    throw new Error(
+      "falta la API key web de Firebase (la pública, la de VITE_FIREBASE_API_KEY): pasala con " +
+        "--api-key o exportá VITE_FIREBASE_API_KEY"
     );
   }
 
-  const tokenPersonalizado = await admin.auth().createCustomToken(uid);
+  const tokenPersonalizado = await admin.auth().createCustomToken(uid, role ? { role } : undefined);
 
   const { datos } = await peticionJson(
     `${entorno.identityBase}/accounts:signInWithCustomToken?key=${encodeURIComponent(apiKey)}`,
@@ -343,7 +373,13 @@ async function obtenerIdTokenAdmin(entorno, admin, uid, apiKey) {
 
   if (!datos.idToken) {
     const motivo = datos.error && datos.error.message ? datos.error.message : "respuesta inesperada";
-    throw new Error(`No se pudo obtener el ID token del administrador (${motivo}).`);
+    const pista = /INVALID_CUSTOM_TOKEN|CREDENTIAL_MISMATCH/.test(motivo)
+      ? " (la API key no es de este proyecto, o la clave de servicio no corresponde al proyecto)"
+      : /API key|API_KEY/i.test(motivo)
+        ? " (la API key no es válida)"
+        : "";
+
+    throw new Error(`Identity Toolkit rechazó el intercambio: ${motivo}${pista}`);
   }
 
   let carga;
@@ -356,12 +392,87 @@ async function obtenerIdTokenAdmin(entorno, admin, uid, apiKey) {
 
   if (carga.role !== "administrador") {
     throw new Error(
-      "El ID token obtenido NO conserva el claim role=administrador; no se puede actuar como " +
-        "administrador por esta vía."
+      "el ID token obtenido NO trae el claim role=administrador; no se puede actuar como administrador por esta vía"
     );
   }
 
   return datos.idToken;
+}
+
+/**
+ * PRE-VUELO (i)+(iii): intercambia el custom token por un ID token y verifica
+ * el claim role. Crea solo una sesión del administrador (no escribe datos).
+ * Un fallo con INVALID_CUSTOM_TOKEN delata una API key de otro proyecto.
+ */
+async function preVueloIdToken(entorno, admin, uid, apiKey, role) {
+  try {
+    const idToken = await obtenerIdTokenAdmin(entorno, admin, uid, apiKey, role);
+
+    return {
+      nombre: "(i)+(iii) ID token del administrador con claim role, y API key del proyecto",
+      ok: true,
+      mensaje: "OK (se creó una sesión del administrador; no se escribió ningún dato)",
+      idToken,
+    };
+  } catch (error) {
+    return {
+      nombre: "(i)+(iii) ID token del administrador con claim role, y API key del proyecto",
+      ok: false,
+      mensaje: error.message,
+    };
+  }
+}
+
+/**
+ * PRE-VUELO (ii): POST {} con el Bearer a procesarMedicion. La función valida
+ * el token ANTES de tocar Firestore: con un token válido responde 400 (payload
+ * incompleto) y con uno inválido 403; en ningún caso escribe.
+ */
+async function preVueloTokenMedicion(entorno, token) {
+  const nombre = "(ii) token de procesarMedicion";
+
+  if (!token) {
+    return { nombre, ok: false, mensaje: "falta la variable PROCESAR_MEDICION_TOKEN" };
+  }
+
+  try {
+    const { status } = await peticionJson(entorno.procesarMedicionUrl, {
+      cuerpo: {},
+      cabeceras: { Authorization: `Bearer ${token}` },
+      timeoutMs: 30000,
+    });
+
+    if (status === 400) {
+      return { nombre, ok: true, mensaje: "OK (HTTP 400: token válido; la función rechazó el payload vacío sin escribir)" };
+    }
+
+    if (status === 403 || status === 401) {
+      return { nombre, ok: false, mensaje: `HTTP ${status}: el token NO es el que acepta la función (INTEGRATION_SERVICE_TOKEN)` };
+    }
+
+    if (status === 404) {
+      return { nombre, ok: false, mensaje: "HTTP 404: la función procesarMedicion no existe en ese proyecto/región" };
+    }
+
+    return { nombre, ok: false, mensaje: `respuesta inesperada HTTP ${status}` };
+  } catch (error) {
+    return { nombre, ok: false, mensaje: `no se pudo llamar a procesarMedicion (${error.message})` };
+  }
+}
+
+/** Imprime el resumen del pre-vuelo y devuelve true si todo está OK. */
+function imprimirPreVuelo(resultados) {
+  console.log("\n== PRE-VUELO (comprobaciones sin escribir datos)");
+
+  for (const r of resultados) {
+    console.log(`   PRE-VUELO ${r.nombre}: ${r.ok ? "OK" : "FALLO"} - ${r.mensaje}`);
+  }
+
+  const ok = resultados.every((r) => r.ok);
+
+  console.log(`   PRE-VUELO RESUMEN: ${ok ? "OK" : "FALLO"}`);
+
+  return ok;
 }
 
 async function llamarCallable(entorno, nombre, data, idToken) {
@@ -430,9 +541,14 @@ async function enviarMedicion(entorno, token, medicion) {
 // INCUBADORAS
 // =========================================================
 
+const esDemo = (incubadora) => /\(demo\)/i.test(String(incubadora.nombre));
+
 /**
  * Resuelve una incubadora a partir de un texto: id exacto, nombre exacto,
- * una letra ("A", "B", "C") o un fragmento único del nombre.
+ * una letra ("A", "B", "C") o un fragmento único del nombre. SIEMPRE prefiere
+ * las incubadoras de la demo (nombre con «(demo)»): una incubadora real cuyo
+ * nombre también empiece con "Incubadora A" no se confunde con la de la demo.
+ * Si sigue habiendo más de una candidata, aborta.
  */
 async function resolverIncubadora(db, texto) {
   const buscado = String(texto || "").trim();
@@ -455,20 +571,22 @@ async function resolverIncubadora(db, texto) {
   }));
 
   const minuscula = buscado.toLowerCase();
-  const exactas = todas.filter((i) => String(i.nombre).toLowerCase() === minuscula);
+  let candidatas = todas.filter((i) => String(i.nombre).toLowerCase() === minuscula);
 
-  if (exactas.length === 1) {
-    return exactas[0];
+  if (candidatas.length === 0) {
+    if (/^[a-z]$/i.test(buscado)) {
+      const patron = new RegExp(`^Incubadora\\s+${buscado}\\b`, "i");
+
+      candidatas = todas.filter((i) => patron.test(String(i.nombre)));
+    } else {
+      candidatas = todas.filter((i) => String(i.nombre).toLowerCase().includes(minuscula));
+    }
   }
 
-  let candidatas;
+  const demo = candidatas.filter(esDemo);
 
-  if (/^[a-z]$/i.test(buscado)) {
-    const patron = new RegExp(`^Incubadora\\s+${buscado}\\b`, "i");
-
-    candidatas = todas.filter((i) => patron.test(String(i.nombre)));
-  } else {
-    candidatas = todas.filter((i) => String(i.nombre).toLowerCase().includes(minuscula));
+  if (demo.length > 0) {
+    candidatas = demo;
   }
 
   if (candidatas.length === 1) {
@@ -500,6 +618,9 @@ async function dispositivosDe(db, incubadoraId) {
     .sort((a, b) => marca(a) - marca(b) || a.id.localeCompare(b.id));
 }
 
+// Una comunicación más vieja que esto no cuenta como "conectado legítimo".
+const VENTANA_CONECTADO_RECIENTE_MS = 60 * 1000;
+
 /**
  * Ejecuta `tarea` (que envía lecturas a procesarMedicion como si fueran de
  * ciertos sensores) y después devuelve a esos sensores el estado de conexión
@@ -510,9 +631,17 @@ async function dispositivosDe(db, incubadoraId) {
  * equipo real emitiendo latidos. Si el sensor queda "conectado" sin latidos,
  * la próxima vez que arranque el Servicio de Integración lo carga como
  * conectado, no recibe ninguna señal y a los 30 s lo marca "desconectado" y
- * crea una alerta de desconexión (la incubadora pasa a "Crítico"). Se
- * respeta el estado previo; si el sensor ya estaba "conectado" (porque un
- * simulador o un equipo real lo está manteniendo vivo) no se toca nada.
+ * crea una alerta de desconexión (la incubadora pasa a "Crítico").
+ *
+ * Restauración:
+ *   - estado previo "conectado" CON comunicación reciente (< 60 s): es un
+ *     equipo vivo (simulador o real); no se toca;
+ *   - estado previo "conectado" pero con comunicación vieja o sin fecha:
+ *     estaba "colgado"; se restaura a "desconocido";
+ *   - cualquier otro estado previo: se restaura tal cual.
+ * Se ejecuta también si la tarea falla y si llega SIGINT/SIGTERM (Ctrl+C):
+ * en ese caso se restaura y se sale con código 130. Un error al restaurar se
+ * informa pero no tapa el error original de la tarea.
  */
 async function conservarConexion(db, dispositivoIds, tarea) {
   const antes = new Map();
@@ -522,22 +651,50 @@ async function conservarConexion(db, dispositivoIds, tarea) {
 
     if (snap.exists) {
       const d = snap.data();
+      const ultima = d.ultimaComunicacionEn && d.ultimaComunicacionEn.toMillis ? d.ultimaComunicacionEn.toMillis() : null;
+      let estado = d.estadoConexion || "desconocido";
+
+      if (estado === "conectado" && !(ultima !== null && Date.now() - ultima < VENTANA_CONECTADO_RECIENTE_MS)) {
+        estado = "desconocido";
+      }
 
       antes.set(id, {
-        estadoConexion: d.estadoConexion || "desconocido",
-        ultimaComunicacionEn: d.ultimaComunicacionEn || null,
+        conservar: estado === "conectado",
+        valores: { estadoConexion: estado, ultimaComunicacionEn: d.ultimaComunicacionEn || null },
       });
     }
   }
 
+  let restaurado = false;
+  const restaurar = async () => {
+    if (restaurado) return;
+    restaurado = true;
+
+    for (const [id, previo] of antes) {
+      if (previo.conservar) continue;
+
+      try {
+        await db.collection("dispositivos").doc(id).update(previo.valores);
+      } catch (error) {
+        console.error(`AVISO: no se pudo restaurar el estado de conexión de ${id}: ${error.message}`);
+      }
+    }
+  };
+
+  const alSenal = (senal) => {
+    console.error(`\n ${senal || "Interrupción"}: restaurando el estado de conexión de los sensores y saliendo...`);
+    restaurar().finally(() => process.exit(130));
+  };
+
+  process.once("SIGINT", alSenal);
+  process.once("SIGTERM", alSenal);
+
   try {
     return await tarea();
   } finally {
-    for (const [id, previo] of antes) {
-      if (previo.estadoConexion !== "conectado") {
-        await db.collection("dispositivos").doc(id).update(previo);
-      }
-    }
+    process.removeListener("SIGINT", alSenal);
+    process.removeListener("SIGTERM", alSenal);
+    await restaurar();
   }
 }
 
@@ -584,6 +741,7 @@ module.exports = {
   MARGEN_RESOLUCION,
   REGION_POR_DEFECTO,
   abortar,
+  ejecutar,
   esperar,
   leerArgumentos,
   hostLocal,
@@ -591,6 +749,10 @@ module.exports = {
   imprimirEncabezado,
   iniciarAdmin,
   obtenerIdTokenAdmin,
+  preVueloIdToken,
+  preVueloTokenMedicion,
+  imprimirPreVuelo,
+  esDemo,
   llamarCallable,
   enviarMedicion,
   resolverIncubadora,
