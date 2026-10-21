@@ -4,3 +4,8 @@ node_modules/
 firebase-debug.log
 firebase-debug.*.log
 .secret.local
+
+# Claves de los usuarios de demo (las genera scripts/cargar-datos-demo.js).
+# NUNCA se versionan.
+scripts/demo-credenciales.local.json
+scripts/*.local.json
