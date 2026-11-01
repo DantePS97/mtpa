@@ -190,9 +190,9 @@ Avisos relevantes:
 
 | Documento | Contenido |
 | --------- | --------- |
-| [`docs/MTPA_ERS_v1.2.docx`](docs/MTPA_ERS_v1.2.docx) | Especificación de requisitos de software (ERS) |
-| [`docs/MTPA_DDS_v1.0.docx`](docs/MTPA_DDS_v1.0.docx) | Documento de diseño de software (DDS) |
-| [`docs/MTPA_Plan_de_Trabajo_v1.0.docx`](docs/MTPA_Plan_de_Trabajo_v1.0.docx) | Plan de Trabajo |
+| [`docs/MTPA_ERS_v1.3.docx`](docs/MTPA_ERS_v1.3.docx) | Especificación de requisitos de software (ERS) |
+| [`docs/MTPA_DDS_v1.1.docx`](docs/MTPA_DDS_v1.1.docx) | Documento de diseño de software (DDS) |
+| [`docs/MTPA_Plan_de_Trabajo_v1.1.docx`](docs/MTPA_Plan_de_Trabajo_v1.1.docx) | Plan de Trabajo |
 | [`docs/arquitectura.md`](docs/arquitectura.md) | Arquitectura, capas del cliente, roles y principio central |
 | [`docs/modelo-datos.md`](docs/modelo-datos.md) | Colecciones de Firestore |
 | [`docs/contrato-mqtt.md`](docs/contrato-mqtt.md) | Tópicos y mensajes MQTT |
